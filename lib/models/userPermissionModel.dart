@@ -120,6 +120,8 @@ class Data {
   String? viewLeadCategoryOnly;
   String? viewAllCategory;
   String? addAttendanceRemarks;
+  dynamic viewVerificationList;
+  dynamic get view_verification_list => viewVerificationList;
   Data({
     this.ProjectDashboard,
     this.LeadDashboard,
@@ -218,6 +220,7 @@ class Data {
     this.viewLeadCategoryOnly,
     this.viewAllCategory,
     this.addAttendanceRemarks,
+    this.viewVerificationList,
   });
 
   Data.fromJson(Map<String, dynamic> json) {
@@ -318,6 +321,7 @@ class Data {
     viewLeadCategoryOnly = json['viewLeadCategoryOnly'];
     viewAllCategory = json['viewAllCategory'];
     addAttendanceRemarks = json['add_attendance_remark'];
+    viewVerificationList = json['view_verification_list'];
   }
 
   Map<String, dynamic> toJson() {
@@ -414,6 +418,7 @@ class Data {
     data['viewLeadCategoryOnly'] = viewLeadCategoryOnly;
     data['viewAllCategory'] = viewAllCategory;
     data['add_attendance_remark'] = addAttendanceRemarks;
+    data['view_verification_list'] = viewVerificationList;
     return data;
   }
 }

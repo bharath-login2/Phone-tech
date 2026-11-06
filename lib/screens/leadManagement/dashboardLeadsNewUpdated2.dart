@@ -97,6 +97,8 @@ import '../../widgets/togglebutton_start.dart';
 import '../drawerScreen.dart';
 import '../../models/lead_management/BulkTransferLeadModel.dart';
 import '../../models/lead_management/showTransferHideorShowModel.dart';
+import '../leadManagement/verifiedDashboard.dart';
+import '../../models/userPermissionModel.dart';
 
 class DashboardLeadNewUpdatedTwo extends StatefulWidget {
   final String? token;
@@ -274,6 +276,7 @@ class _DashboardLeadNewUpdatedTwoState extends State<DashboardLeadNewUpdatedTwo>
   bool _isTab0Loaded = false;
   bool _isTab1Loaded = false;
   bool _isTab2Loaded = false;
+  bool _isTab3Loaded = false;
   final Set<String> _expandedLeadIds = {};
   List<String> _listTabSelectedStatusIds = [];
   List<String> _listTabSelectedStaffIds = [];
@@ -285,6 +288,38 @@ class _DashboardLeadNewUpdatedTwoState extends State<DashboardLeadNewUpdatedTwo>
   bool _isListTabDateFiltered = false;
   bool _isGlobalDateFiltered = false;
   String _listTabSortOrder = 'desc';
+  bool _showVerifiedTab = true;
+
+  bool _isVerificationListAllowed(dynamic val) {
+    if (val == null) return true;
+    if (val is bool) return val;
+    final str = val.toString().trim().toLowerCase();
+    if (str == 'false' || str == '0') {
+      return false;
+    }
+    return true;
+  }
+
+  List<Detail> _verifiedTabLeads = [];
+  bool _isVerifiedTabLoading = false;
+  bool _isVerifiedTabLoadingMore = false;
+  bool _hasMoreVerifiedTabLeads = true;
+  int _verifiedTabPage = 1;
+  int _totalVerifiedLeads = 0;
+  String _selectedVerifiedFilter = 'Today Called';
+  dynamic _verifiedType = -1;
+  dynamic _verifiedCallResultId;
+  String _verifiedTabSortOrder = 'desc';
+  bool _isVerifiedSortAscending = false;
+  bool _isVerifiedTabDateFiltered = false;
+  DateTime? _verifiedFromDate;
+  DateTime? _verifiedToDate;
+  List<String> _verifiedTabSelectedStatusIds = [];
+  List<String> _verifiedTabSelectedStaffIds = [];
+  List<String> _verifiedTabSelectedCategoryIds = [];
+  List<String> _verifiedTabSelectedPriorityIds = [];
+  List<String> _verifiedTabSelectedProductIds = [];
+  List<String> _verifiedTabSelectedTagIds = [];
 
   bool _isSortAscending = false;
   static const Color appBarStart = Color(0xFF2a86c9);
@@ -402,7 +437,7 @@ class _DashboardLeadNewUpdatedTwoState extends State<DashboardLeadNewUpdatedTwo>
   @override
   void initState() {
     super.initState();
-    _tabController = TabController(length: 3, vsync: this);
+    _tabController = TabController(length: _getTabCount(), vsync: this);
     _tabController.addListener(_handleTabSelection);
     _loadReportStates().then((_) {
       _loadReportsFromCache();
@@ -416,6 +451,33 @@ class _DashboardLeadNewUpdatedTwoState extends State<DashboardLeadNewUpdatedTwo>
     }
     _clearListTabFilters(); // Clear filters when switching main tabs
     _fetchDataForTab(_tabController.index);
+  }
+
+  void _onVerifiedTileClicked(
+    String title, {
+    dynamic type,
+    dynamic leadType,
+    dynamic callResultId,
+    int verifyDashboard = 1,
+  }) {
+    setState(() {
+      _selectedVerifiedFilter = title;
+      _verifiedType = type;
+      _verifiedCallResultId = callResultId;
+      _verifiedTabPage = 1;
+      _hasMoreVerifiedTabLeads = true;
+      _isVerifiedTabLoading = true;
+      _verifiedTabLeads = [];
+      _verifiedTabSelectedStatusIds.clear();
+      _verifiedTabSelectedStaffIds.clear();
+      _verifiedTabSelectedCategoryIds.clear();
+      _verifiedTabSelectedPriorityIds.clear();
+      _verifiedTabSelectedProductIds.clear();
+      _verifiedTabSelectedTagIds.clear();
+      _isVerifiedTabDateFiltered = false;
+    });
+
+    _fetchVerifiedTabLeads();
   }
 
   void _clearListTabFilters() {
@@ -432,10 +494,19 @@ class _DashboardLeadNewUpdatedTwoState extends State<DashboardLeadNewUpdatedTwo>
   }
 
   int _getTabCount() {
-    return 3;
+    return _showVerifiedTab ? 4 : 3;
   }
 
   Future<void> _loadReportStates() async {
+    final cachedVerification =
+        await Common.getSharedPref("view_verification_list");
+    if (cachedVerification != null) {
+      final allowed = _isVerificationListAllowed(cachedVerification);
+      if (_showVerifiedTab != allowed) {
+        _showVerifiedTab = allowed;
+        _updateTabController();
+      }
+    }
     _reportType1 =
         await Common.getSharedPref("reportType1") ?? "Call Status Report";
     _reportType2 =
@@ -513,10 +584,19 @@ class _DashboardLeadNewUpdatedTwoState extends State<DashboardLeadNewUpdatedTwo>
     if (_tabController.length != newLength) {
       final oldIndex = _tabController.index;
       _tabController.dispose();
+      int initialIndex = 0;
+      if (!_showVerifiedTab) {
+        initialIndex = oldIndex > 0 ? oldIndex - 1 : 0;
+      } else {
+        initialIndex = (oldIndex + 1 < newLength) ? oldIndex + 1 : 0;
+      }
+      if (initialIndex >= newLength) {
+        initialIndex = 0;
+      }
       _tabController = TabController(
         length: newLength,
         vsync: this,
-        initialIndex: oldIndex < newLength ? oldIndex : 0,
+        initialIndex: initialIndex,
       );
       _tabController.addListener(_handleTabSelection);
       setState(() {});
@@ -581,9 +661,17 @@ class _DashboardLeadNewUpdatedTwoState extends State<DashboardLeadNewUpdatedTwo>
   }
 
   Future<void> _fetchDataForTab(int index) async {
-    if (index == 0) {
+    final bool isVerifiedTabPresent = _tabController.length == 4;
+    if (isVerifiedTabPresent && index == 0) {
       if (!_isTab0Loaded) {
         _isTab0Loaded = true;
+        await _fetchDashboardTabContent();
+        await _fetchVerifiedTabLeads();
+      }
+    } else if ((isVerifiedTabPresent && index == 1) ||
+        (!isVerifiedTabPresent && index == 0)) {
+      if (!_isTab1Loaded) {
+        _isTab1Loaded = true;
         if (_isGraphViewActive) {
           await _fetchProgressBarLeads(_listTabFilter);
         } else {
@@ -593,14 +681,16 @@ class _DashboardLeadNewUpdatedTwoState extends State<DashboardLeadNewUpdatedTwo>
         }
         await _fetchDashboardTabContent();
       }
-    } else if (index == 1) {
-      if (!_isTab1Loaded) {
-        _isTab1Loaded = true;
-        await _fetchDashboardTabContent();
-      }
-    } else if (index == 2) {
+    } else if ((isVerifiedTabPresent && index == 2) ||
+        (!isVerifiedTabPresent && index == 1)) {
       if (!_isTab2Loaded) {
         _isTab2Loaded = true;
+        await _fetchDashboardTabContent();
+      }
+    } else if ((isVerifiedTabPresent && index == 3) ||
+        (!isVerifiedTabPresent && index == 2)) {
+      if (!_isTab3Loaded) {
+        _isTab3Loaded = true;
         await _fetchReportTabContent();
       }
     }
@@ -675,8 +765,10 @@ class _DashboardLeadNewUpdatedTwoState extends State<DashboardLeadNewUpdatedTwo>
     if (isRefresh) {
       _isTab0Loaded = false;
       _isTab1Loaded = false;
-      if (_tabController.index == 2) {
-        _isTab2Loaded = false;
+      _isTab2Loaded = false;
+      final int reportTabIndex = _tabController.length == 4 ? 3 : 2;
+      if (_tabController.index == reportTabIndex) {
+        _isTab3Loaded = false;
       }
     }
     try {
@@ -828,6 +920,27 @@ class _DashboardLeadNewUpdatedTwoState extends State<DashboardLeadNewUpdatedTwo>
         });
       }
     });
+    final cachedVerification =
+        await Common.getSharedPref("view_verification_list");
+    if (cachedVerification != null) {
+      _showVerifiedTab = _isVerificationListAllowed(cachedVerification);
+    }
+    if (widget.token != null) {
+      try {
+        final userPermResponse =
+            await HttpService.userPermissionCheck(widget.token!);
+        if (userPermResponse != null && userPermResponse.data != null) {
+          final apiVal = userPermResponse.data!.viewVerificationList;
+          if (apiVal != null) {
+            _showVerifiedTab = _isVerificationListAllowed(apiVal);
+            await Common.saveSharedPref(
+                "view_verification_list", apiVal.toString());
+          }
+        }
+      } catch (e) {
+        log("Error fetching user_permissions in dashboard: $e");
+      }
+    }
   }
 
   Future<void> _checkLoginPrompt() async {
@@ -1125,6 +1238,20 @@ class _DashboardLeadNewUpdatedTwoState extends State<DashboardLeadNewUpdatedTwo>
     String callStatus,
   ) async {
     object1 = await HttpService.leadProgressbar(
+      token,
+      fromDate.toString(),
+      toDate.toString(),
+      callStatus,
+    );
+  }
+
+  Future<void> getLeadProgressbarData(
+    String token,
+    dynamic fromDate,
+    dynamic toDate,
+    String callStatus,
+  ) async {
+    object1 = await HttpService.leadProgressbarData(
       token,
       fromDate.toString(),
       toDate.toString(),
@@ -2998,9 +3125,10 @@ class _DashboardLeadNewUpdatedTwoState extends State<DashboardLeadNewUpdatedTwo>
         labelColor: Colors.white,
         unselectedLabelColor: Colors.grey,
         tabs: [
-          _buildAnimatedTab('LIST', 0),
-          _buildAnimatedTab('DASHBOARD', 1),
-          _buildAnimatedTab('REPORT', 2),
+          if (_tabController.length == 4) _buildAnimatedTab('VERIFIED', 0),
+          _buildAnimatedTab('LIST', _tabController.length == 4 ? 1 : 0),
+          _buildAnimatedTab('DASHBOARD', _tabController.length == 4 ? 2 : 1),
+          _buildAnimatedTab('REPORT', _tabController.length == 4 ? 3 : 2),
         ],
       ),
     );
@@ -3017,7 +3145,9 @@ class _DashboardLeadNewUpdatedTwoState extends State<DashboardLeadNewUpdatedTwo>
             scale: scale,
             child: Text(
               text,
-              style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 12),
+              style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 11),
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
             ),
           );
         },
@@ -3033,6 +3163,38 @@ class _DashboardLeadNewUpdatedTwoState extends State<DashboardLeadNewUpdatedTwo>
     return TabBarView(
       controller: _tabController,
       children: [
+        if (_tabController.length == 4)
+          VerifiedDashboard(
+            token: widget.token,
+            onRefresh: () async {
+              await getData(widget.token, fromDate, toDate, isRefresh: true);
+              await _fetchVerifiedTabLeads();
+            },
+            leadDashboard: leadDashboard,
+            dashboardCounts: dashboardCounts,
+            dashboardMainCounts: dashboardMainCounts,
+            selectedFilter: _selectedVerifiedFilter,
+            onTileSelected: (title, {type, callResultId, verifyDashboard,leadType}) {
+              _onVerifiedTileClicked(
+                title,
+                type: type,
+                leadType: type,
+                callResultId: callResultId,
+                verifyDashboard: verifyDashboard ?? 1,
+              );
+            },
+            onScrollNotification: (ScrollNotification scrollInfo) {
+              if (!_isVerifiedTabLoadingMore &&
+                  _hasMoreVerifiedTabLeads &&
+                  scrollInfo.metrics.pixels >=
+                      scrollInfo.metrics.maxScrollExtent - 200) {
+                _fetchVerifiedTabLeads(isLoadMore: true);
+                return true;
+              }
+              return false;
+            },
+            listContent: _buildVerifiedTabContent(),
+          ),
         RefreshIndicator(
           key: _listTabRefreshIndicatorKey,
           onRefresh: () =>
@@ -3904,13 +4066,17 @@ class _DashboardLeadNewUpdatedTwoState extends State<DashboardLeadNewUpdatedTwo>
               ? '2'
               : _listTabFilter == 'Missed'
                   ? '0'
-                  : _listTabFilter == 'Called'
-                      ? '1'
-                      : _listTabFilter == 'Transferred'
-                          ? '2'
-                          : _listTabFilter == 'Closed'
-                              ? '4'
-                              : '';
+                  : _listTabFilter == 'CNG'
+                      ? '9'
+                      : _listTabFilter == 'Called'
+                          ? '1'
+                          : _listTabFilter == 'Transferred'
+                              ? '2'
+                              : _listTabFilter == 'Closed'
+                                  ? '4'
+                                  : _listTabFilter == 'Plan Presented'
+                                      ? '7'
+                                      : '';
 
       dynamic fDate = fromDate;
       dynamic tDate = toDate;
@@ -3936,6 +4102,13 @@ class _DashboardLeadNewUpdatedTwoState extends State<DashboardLeadNewUpdatedTwo>
           tDate,
           effectiveGraphStatus,
         );
+      } else if (category == "CNG") {
+        await getLeadProgressbarData(
+          widget.token!,
+          fDate,
+          tDate,
+          "9",
+        );
       } else if (category == "Called") {
         await getLeadProgressbarCalled(
           widget.token!,
@@ -3949,6 +4122,13 @@ class _DashboardLeadNewUpdatedTwoState extends State<DashboardLeadNewUpdatedTwo>
           fDate,
           tDate,
           effectiveGraphStatus,
+        );
+      } else if (category == "Plan Presented") {
+        await getLeadProgressbarData(
+          widget.token!,
+          fDate,
+          tDate,
+          "7",
         );
       } else {
         if (category == "Closed") {
@@ -4036,12 +4216,20 @@ class _DashboardLeadNewUpdatedTwoState extends State<DashboardLeadNewUpdatedTwo>
     } else if (_activeGraphCategory == "Missed") {
       currentType = "1";
       currentCallStatus = "-1";
+    } else if (_activeGraphCategory == "CNG") {
+      currentStatus = "9";
+      currentType = "1";
+      currentCallStatus = "9";
     } else if (_activeGraphCategory == "Called") {
       currentType = "-1";
       currentCallStatus = "1";
     } else if (_activeGraphCategory == "Transferred") {
       currentType = "2";
       currentCallStatus = "-2";
+    } else if (_activeGraphCategory == "Plan Presented") {
+      currentStatus = "7";
+      currentType = "1";
+      currentCallStatus = "7";
     }
 
     if (object1 == null || object1!.data == null) {
@@ -4058,6 +4246,13 @@ class _DashboardLeadNewUpdatedTwoState extends State<DashboardLeadNewUpdatedTwo>
     }
 
     final data = object1!.data!;
+    final String? graphCallResultId =
+        (_activeGraphCategory == "CNG" || currentCallStatus == "9")
+            ? "9"
+            : (_activeGraphCategory == "Plan Presented" ||
+                    currentCallStatus == "7")
+                ? "7"
+                : null;
     return Padding(
       padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 8),
       child: Column(
@@ -4106,6 +4301,7 @@ class _DashboardLeadNewUpdatedTwoState extends State<DashboardLeadNewUpdatedTwo>
                               status: currentStatus,
                               type: currentType,
                               callStatus: currentCallStatus,
+                              callResultId: graphCallResultId,
                               isFollowup: "1",
                             )
                           : _navigateToFilteredLeads(
@@ -4116,6 +4312,7 @@ class _DashboardLeadNewUpdatedTwoState extends State<DashboardLeadNewUpdatedTwo>
                               status: currentStatus,
                               type: currentType,
                               callStatus: currentCallStatus,
+                              callResultId: graphCallResultId,
                             ),
                     );
                   }),
@@ -4153,14 +4350,14 @@ class _DashboardLeadNewUpdatedTwoState extends State<DashboardLeadNewUpdatedTwo>
                         status: currentStatus,
                         type: currentType,
                         callStatus: currentCallStatus,
+                        callResultId: graphCallResultId,
                       ),
                     );
                   }),
                 ],
                 if (data.missedLeads != null &&
                     data.missedLeads!.isNotEmpty) ...[
-                  if ((data.staffLeads?.isNotEmpty ?? false) ||
-                      (data.categoryLeads?.isNotEmpty ?? false))
+                  if ((data.staffLeads?.isNotEmpty ?? false))
                     Padding(
                       padding: const EdgeInsets.symmetric(vertical: 16),
                       child: Divider(height: 1, color: Colors.grey.shade100),
@@ -4191,6 +4388,7 @@ class _DashboardLeadNewUpdatedTwoState extends State<DashboardLeadNewUpdatedTwo>
                         status: currentStatus,
                         type: currentType,
                         callStatus: currentCallStatus,
+                        callResultId: graphCallResultId,
                       ),
                     );
                   }),
@@ -4245,10 +4443,24 @@ class _DashboardLeadNewUpdatedTwoState extends State<DashboardLeadNewUpdatedTwo>
     String? callStatus,
     String? callResName,
     String? callResId,
+    String? callResultId,
     DateTime? from,
     DateTime? to,
     bool isGlobalContext = false,
   }) {
+    final String? effectiveCallResultId = callResultId ??
+        ((title?.contains('CNG') == true || callStatus == '9' || status == '9')
+            ? '9'
+            : (title?.contains('Plan Presented') == true ||
+                    callStatus == '7' ||
+                    status == '7')
+                ? '7'
+                : null);
+    final String effectiveStatus =
+        (effectiveCallResultId != null && (status == null || status == '0'))
+            ? effectiveCallResultId
+            : (status ?? '0');
+
     return Navigator.push(
       context,
       MaterialPageRoute(
@@ -4268,7 +4480,7 @@ class _DashboardLeadNewUpdatedTwoState extends State<DashboardLeadNewUpdatedTwo>
               : (isGlobalContext
                   ? (_isGlobalDateFiltered ? toDate.toString() : null)
                   : (_isListTabDateFiltered ? toDate.toString() : null)),
-          status: status ?? '0',
+          status: effectiveStatus,
           leadType: type ?? '',
           staffName: staffName,
           staff: staffId,
@@ -4277,6 +4489,7 @@ class _DashboardLeadNewUpdatedTwoState extends State<DashboardLeadNewUpdatedTwo>
           callResId: callResId,
           callResName: callResName,
           callStatus: callStatus,
+          callResultId: effectiveCallResultId,
         ),
       ),
     ).then((r) {
@@ -4296,47 +4509,61 @@ class _DashboardLeadNewUpdatedTwoState extends State<DashboardLeadNewUpdatedTwo>
     String? callStatus,
     String? callResName,
     String? callResId,
+    String? callResultId,
     DateTime? from,
     DateTime? to,
     String? isFollowup,
     bool isGlobalContext = false,
   }) {
+    final String? effectiveCallResultId = callResultId ??
+        ((title?.contains('CNG') == true || callStatus == '9' || status == '9')
+            ? '9'
+            : (title?.contains('Plan Presented') == true ||
+                    callStatus == '7' ||
+                    status == '7')
+                ? '7'
+                : null);
+    final String effectiveStatus =
+        (effectiveCallResultId != null && (status == null || status == '0'))
+            ? effectiveCallResultId
+            : (status ?? '0');
+
     return Navigator.push(
-  context,
-  MaterialPageRoute(
-    builder: (context) => ViewLeadsNew(
-      widget.token,
-      updateLeadPermission1,
-      deleteLeadPermission1,
-      cloudCallPermission1,
-      pageName: title ?? 'Leads',
-      fromDate: from != null
-          ? from.toString()
-          : (isGlobalContext
-              ? (_isGlobalDateFiltered ? fromDate.toString() : null)
-              : (_isListTabDateFiltered ? fromDate.toString() : null)),
-      toDate: to != null
-          ? to.toString()
-          : (isGlobalContext
-              ? (_isGlobalDateFiltered ? toDate.toString() : null)
-              : (_isListTabDateFiltered ? toDate.toString() : null)),
-      status: status ?? '0',
-      leadType: type ?? '',
-      staffName: staffName,
-      staff: staffId,
-      categoryName: categoryName,
-      category: categoryId,
-      callResId: callResId,
-      callResName: callResName,
-      isActiveReport: "1",
-      isFollowup: isFollowup,
-      callStatus: callStatus,
-    ),
-  ),
-).then((r) {
-  getData(widget.token, fromDate, toDate, isRefresh: true);
-});
-  
+      context,
+      MaterialPageRoute(
+        builder: (context) => ViewLeadsNew(
+          widget.token,
+          updateLeadPermission1,
+          deleteLeadPermission1,
+          cloudCallPermission1,
+          pageName: title ?? 'Leads',
+          fromDate: from != null
+              ? from.toString()
+              : (isGlobalContext
+                  ? (_isGlobalDateFiltered ? fromDate.toString() : null)
+                  : (_isListTabDateFiltered ? fromDate.toString() : null)),
+          toDate: to != null
+              ? to.toString()
+              : (isGlobalContext
+                  ? (_isGlobalDateFiltered ? toDate.toString() : null)
+                  : (_isListTabDateFiltered ? toDate.toString() : null)),
+          status: effectiveStatus,
+          leadType: type ?? '',
+          staffName: staffName,
+          staff: staffId,
+          categoryName: categoryName,
+          category: categoryId,
+          callResId: callResId,
+          callResName: callResName,
+          isActiveReport: "1",
+          isFollowup: isFollowup,
+          callStatus: callStatus,
+          callResultId: effectiveCallResultId,
+        ),
+      ),
+    ).then((r) {
+      getData(widget.token, fromDate, toDate, isRefresh: true);
+    });
   }
 
   void _navigateToFilteredLeadsActiveActive({
@@ -4540,12 +4767,20 @@ class _DashboardLeadNewUpdatedTwoState extends State<DashboardLeadNewUpdatedTwo>
                                           ? 'Followup Leads'
                                           : _listTabFilter == 'Missed'
                                               ? 'Missed Leads'
-                                              : _listTabFilter == 'Called'
-                                                  ? 'Called Leads'
-                                                  : _listTabFilter ==
-                                                          'Transferred'
-                                                      ? 'Transferred Leads'
-                                                      : 'Total Leads',
+                                              : _listTabFilter == 'CNG'
+                                                  ? 'CNG Leads'
+                                                  : _listTabFilter == 'Called'
+                                                      ? 'Called Leads'
+                                                      : _listTabFilter ==
+                                                              'Transferred'
+                                                          ? 'Transferred Leads'
+                                                          : _listTabFilter ==
+                                                                  'Closed'
+                                                              ? 'Closed Leads'
+                                                              : _listTabFilter ==
+                                                                      'Plan Presented'
+                                                                  ? 'Plan Presented Leads'
+                                                                  : 'Total Leads',
                               style: TextStyle(
                                 fontSize: 16,
                                 fontWeight: FontWeight.bold,
@@ -4946,13 +5181,15 @@ class _DashboardLeadNewUpdatedTwoState extends State<DashboardLeadNewUpdatedTwo>
     int index, {
     bool autoExpandFollowup = false,
     String? customCallMasterId,
+    List<Detail>? sourceList,
   }) async {
     final String targetCallMasterId;
     if (customCallMasterId != null) {
       targetCallMasterId = customCallMasterId;
     } else {
-      if (index < 0 || index >= listTabLeads.length) return;
-      targetCallMasterId = listTabLeads[index].callMasterId;
+      final list = sourceList ?? listTabLeads;
+      if (index < 0 || index >= list.length) return;
+      targetCallMasterId = list[index].callMasterId;
     }
 
     showDialog(
@@ -5022,7 +5259,7 @@ class _DashboardLeadNewUpdatedTwoState extends State<DashboardLeadNewUpdatedTwo>
           pageName: 'Dashboard',
           autoExpandFollowup: autoExpandFollowup,
           onDataChanged: () {
-            _refreshLeadData(index);
+            _refreshLeadData(index, sourceList: sourceList);
           },
         ),
       );
@@ -5033,9 +5270,10 @@ class _DashboardLeadNewUpdatedTwoState extends State<DashboardLeadNewUpdatedTwo>
     }
   }
 
-  Future<void> _refreshLeadData(int index) async {
-    if (index < 0 || index >= listTabLeads.length) return;
-    String cmId = listTabLeads[index].callMasterId;
+  Future<void> _refreshLeadData(int index, {List<Detail>? sourceList}) async {
+    final list = sourceList ?? listTabLeads;
+    if (index < 0 || index >= list.length) return;
+    String cmId = list[index].callMasterId;
     try {
       final response = await HttpService.leadDetails(widget.token!, cmId);
       if (response != null && response.data != null) {
@@ -5045,7 +5283,9 @@ class _DashboardLeadNewUpdatedTwoState extends State<DashboardLeadNewUpdatedTwo>
             final String newStatusIdStr = d.callResultId ?? '';
             bool shouldRemove = false;
 
-            if (_listTabSelectedStatusIds != null &&
+            if (sourceList != null) {
+              shouldRemove = false;
+            } else if (_listTabSelectedStatusIds != null &&
                 _listTabSelectedStatusIds!.isNotEmpty) {
               if (!_listTabSelectedStatusIds!.contains(newStatusIdStr)) {
                 shouldRemove = true;
@@ -5063,6 +5303,10 @@ class _DashboardLeadNewUpdatedTwoState extends State<DashboardLeadNewUpdatedTwo>
                 if (newStatusIdStr != '3') {
                   shouldRemove = true;
                 }
+              } else if (_listTabFilter == 'CNG') {
+                if (newStatusIdStr != '9') {
+                  shouldRemove = true;
+                }
               } else if (_listTabFilter == 'Called') {
                 // For Called tab, the backend returns all called leads regardless of callResultId.
                 // Therefore, we should never remove a lead from Called tab locally.
@@ -5072,17 +5316,21 @@ class _DashboardLeadNewUpdatedTwoState extends State<DashboardLeadNewUpdatedTwo>
                   shouldRemove = true;
                 }
               } else if (_listTabFilter == 'Closed') {
-                if (newStatusIdStr != '6') {
+                if (newStatusIdStr != '6' && newStatusIdStr != '4') {
+                  shouldRemove = true;
+                }
+              } else if (_listTabFilter == 'Plan Presented') {
+                if (newStatusIdStr != '7') {
                   shouldRemove = true;
                 }
               }
             }
 
             if (shouldRemove) {
-              listTabLeads.removeAt(index);
+              list.removeAt(index);
               _totalLeads = (_totalLeads - 1).clamp(0, 999999);
             } else {
-              var lead = listTabLeads[index];
+              var lead = list[index];
               lead.clientName = d.clientName ?? lead.clientName;
               lead.contactNumber1 = d.contactNumber1 ?? lead.contactNumber1;
               lead.calledDate = d.calledDate ?? lead.calledDate;
@@ -5115,11 +5363,13 @@ class _DashboardLeadNewUpdatedTwoState extends State<DashboardLeadNewUpdatedTwo>
     }
   }
 
-  Future<dynamic> chooseCallDialog(BuildContext context, int index) {
+  Future<dynamic> chooseCallDialog(BuildContext context, int index, {List<Detail>? sourceList}) {
     return showDialog(
       context: context,
       builder: (BuildContext context) {
-        final item = listTabLeads[index];
+        final list = sourceList ?? listTabLeads;
+        if (index < 0 || index >= list.length) return const SizedBox.shrink();
+        final item = list[index];
         return AlertDialog(
           title: const Text('Choose Call Type'),
           content: Column(
@@ -5233,7 +5483,13 @@ class _DashboardLeadNewUpdatedTwoState extends State<DashboardLeadNewUpdatedTwo>
           : (_listTabCurrentIsCalled == true
               ? ((_listTabSelectedStatusIds != null && _listTabSelectedStatusIds!.isNotEmpty)
                   ? _listTabSelectedStatusIds!.join(',')
-                  : (_listTabFilter == "New" ? "1" : ""))
+                  : (_listTabFilter == "New"
+                      ? "1"
+                      : (_listTabFilter == "CNG"
+                          ? "9"
+                          : (_listTabFilter == "Plan Presented"
+                              ? "7"
+                              : ""))))
               : (_listTabCurrentStatus == "0"
                   ? ""
                   : (_listTabCurrentStatus ?? ""))),
@@ -5259,16 +5515,24 @@ class _DashboardLeadNewUpdatedTwoState extends State<DashboardLeadNewUpdatedTwo>
       "call_result_reason": _listTabSelectedTagIds,
     };
 
-    bool shouldSendDates = _isListTabDateFiltered ||
-        (_listTabCurrentLeadType == "-1" ||
-            _listTabCurrentLeadType == "1" ||
-            _listTabCurrentLeadType == "2" ||
-            _listTabCurrentStatus == "4");
-    body["filterStatus"] = shouldSendDates ? 1 : 0;
-    body["fromDate"] =
-        shouldSendDates ? DateFormat('yyyy-MM-dd').format(fromDate) : "";
-    body["toDate"] =
-        shouldSendDates ? DateFormat('yyyy-MM-dd').format(toDate) : "";
+    if (_listTabFilter == "Plan Presented") {
+      body["filterStatus"] = 0;
+      // Omit fromDate and toDate entirely from the API request for Plan Presented
+    } else {
+      bool shouldSendDates = _isListTabDateFiltered ||
+          (_listTabCurrentLeadType == "-1" ||
+              _listTabCurrentLeadType == "1" ||
+              _listTabCurrentLeadType == "2" ||
+              _listTabCurrentStatus == "4" ||
+              _listTabCurrentStatus == "7" ||
+              _listTabCurrentCallStatus == "9" ||
+              _listTabCurrentCallStatus == "7");
+      body["filterStatus"] = shouldSendDates ? 1 : 0;
+      body["fromDate"] =
+          shouldSendDates ? DateFormat('yyyy-MM-dd').format(fromDate) : "";
+      body["toDate"] =
+          shouldSendDates ? DateFormat('yyyy-MM-dd').format(toDate) : "";
+    }
 
     try {
       final response = await HttpService.viewLeadsforActive(body);
@@ -5335,15 +5599,21 @@ class _DashboardLeadNewUpdatedTwoState extends State<DashboardLeadNewUpdatedTwo>
     Map<String, dynamic> body = {
       "token": widget.token,
       "callResultId": (_listTabCurrentIsCalled == true)
-          ? ((_listTabSelectedStatusIds != null && _listTabSelectedStatusIds!.isNotEmpty)
-              ? _listTabSelectedStatusIds!.join(',')
-              : (_listTabFilter == "New" ? "1" : ""))
+          ? (_listTabSelectedStatusIds.isNotEmpty
+              ? _listTabSelectedStatusIds.join(',')
+              : (_listTabFilter == "New"
+                  ? "1"
+                  : (_listTabFilter == "CNG"
+                      ? "9"
+                      : (_listTabFilter == "Plan Presented"
+                          ? "7"
+                          : ""))))
           : (_listTabCurrentStatus == "0" ? "" : (_listTabCurrentStatus ?? "")),
       "leadCategoryId": _listTabSelectedCategoryIds,
       "leadSubcategoryId": [],
       "callResponseId": (_listTabCurrentIsCalled == true)
           ? []
-          : (_listTabSelectedStatusIds ?? []),
+          : _listTabSelectedStatusIds,
       "callStatus": _listTabCurrentCallStatus ?? "",
       "staffId": _listTabSelectedStaffIds,
       "isCalled": _listTabCurrentIsCalled ?? true,
@@ -5357,16 +5627,24 @@ class _DashboardLeadNewUpdatedTwoState extends State<DashboardLeadNewUpdatedTwo>
       "call_result_reason": _listTabSelectedTagIds,
     };
 
-    bool shouldSendDates = _isListTabDateFiltered ||
-        (_listTabCurrentLeadType == "-1" ||
-            _listTabCurrentLeadType == "1" ||
-            _listTabCurrentLeadType == "2" ||
-            _listTabCurrentStatus == "4");
-    body["filterStatus"] = shouldSendDates ? 1 : 0;
-    body["fromDate"] =
-        shouldSendDates ? DateFormat('yyyy-MM-dd').format(fromDate) : "";
-    body["toDate"] =
-        shouldSendDates ? DateFormat('yyyy-MM-dd').format(toDate) : "";
+    if (_listTabFilter == "Plan Presented") {
+      body["filterStatus"] = 0;
+      // Omit fromDate and toDate entirely from the API request for Plan Presented
+    } else {
+      bool shouldSendDates = _isListTabDateFiltered ||
+          (_listTabCurrentLeadType == "-1" ||
+              _listTabCurrentLeadType == "1" ||
+              _listTabCurrentLeadType == "2" ||
+              _listTabCurrentStatus == "4" ||
+              _listTabCurrentStatus == "7" ||
+              _listTabCurrentCallStatus == "9" ||
+              _listTabCurrentCallStatus == "7");
+      body["filterStatus"] = shouldSendDates ? 1 : 0;
+      body["fromDate"] =
+          shouldSendDates ? DateFormat('yyyy-MM-dd').format(fromDate) : "";
+      body["toDate"] =
+          shouldSendDates ? DateFormat('yyyy-MM-dd').format(toDate) : "";
+    }
     try {
       final response = await HttpService.leadReport(body);
       if (response != null && response.data != null) {
@@ -5404,7 +5682,474 @@ class _DashboardLeadNewUpdatedTwoState extends State<DashboardLeadNewUpdatedTwo>
     }
   }
 
-  Widget _buildLeadListItem(Detail lead, int index) {
+  Future<void> _fetchVerifiedTabLeads({bool isLoadMore = false}) async {
+    if (isLoadMore) {
+      if (_isVerifiedTabLoadingMore || !_hasMoreVerifiedTabLeads) return;
+      setState(() {
+        _isVerifiedTabLoadingMore = true;
+      });
+      _verifiedTabPage++;
+    } else {
+      setState(() {
+        _isVerifiedTabLoading = true;
+        _verifiedTabPage = 1;
+        _hasMoreVerifiedTabLeads = true;
+      });
+    }
+
+    Map<String, dynamic> body = {
+      "token": widget.token,
+      "callResultId": _verifiedTabSelectedStatusIds.isNotEmpty
+          ? _verifiedTabSelectedStatusIds.join(',')
+          : (_verifiedCallResultId != null ? _verifiedCallResultId.toString() : ""),
+      "leadCategoryId": _verifiedTabSelectedCategoryIds,
+      "leadSubcategoryId": [],
+      "callResponseId": [],
+      "callStatus": "",
+      "staffId": _verifiedTabSelectedStaffIds,
+      "isCalled": true,
+      "productId": _verifiedTabSelectedProductIds,
+      "sort": _verifiedTabSortOrder,
+      "page": _verifiedTabPage,
+      "pageSize": 10,
+      "isFirst": !isLoadMore,
+      "leadType": _verifiedType ?? "",
+      "priority": _verifiedTabSelectedPriorityIds,
+      "call_result_reason": _verifiedTabSelectedTagIds,
+      "verify_dashboard": 1,
+    };
+
+    if (_verifiedType != null) {
+      body["type"] = _verifiedType;
+    }
+
+    bool shouldSendDates = _isVerifiedTabDateFiltered ||
+        (_verifiedType == -1 || _verifiedType == "-1");
+    body["filterStatus"] = shouldSendDates ? 1 : 0;
+    body["fromDate"] = shouldSendDates
+        ? DateFormat('yyyy-MM-dd').format(_verifiedFromDate ?? fromDate)
+        : "";
+    body["toDate"] = shouldSendDates
+        ? DateFormat('yyyy-MM-dd').format(_verifiedToDate ?? toDate)
+        : "";
+
+    try {
+      final response = await HttpService.leadReport(body);
+      if (response != null && response.data != null) {
+        final newLeads = response.data.details;
+        setState(() {
+          if (isLoadMore) {
+            _verifiedTabLeads.addAll(newLeads);
+          } else {
+            _verifiedTabLeads = newLeads;
+          }
+          _totalVerifiedLeads = response.data.totalLeads;
+          _hasMoreVerifiedTabLeads = newLeads.length >= 10;
+          _isVerifiedTabLoading = false;
+          _isVerifiedTabLoadingMore = false;
+        });
+      } else {
+        setState(() {
+          if (!isLoadMore) {
+            _verifiedTabLeads = [];
+            _totalVerifiedLeads = 0;
+          }
+          _hasMoreVerifiedTabLeads = false;
+          _isVerifiedTabLoading = false;
+          _isVerifiedTabLoadingMore = false;
+        });
+      }
+    } catch (e) {
+      log("Error fetching verified tab leads: $e");
+      setState(() {
+        if (!isLoadMore) _verifiedTabLeads = [];
+        _isVerifiedTabLoading = false;
+        _isVerifiedTabLoadingMore = false;
+      });
+    }
+  }
+
+  Color _getVerifiedTabPrimaryColor() {
+    switch (_selectedVerifiedFilter) {
+      case 'Today Called':
+        return const Color(0xFF2196F3);
+      case 'Total Called':
+        return const Color(0xFF9C27B0);
+      case 'CNG':
+        return const Color(0xFFF44336);
+      case 'Invalid':
+        return const Color(0xFFFF0707);
+      case 'Verified':
+        return const Color(0xFF4CAF50);
+      case 'Boy Data':
+        return const Color(0xFF009688);
+      case 'Girl Data':
+        return const Color(0xFFE91E63);
+      case 'Unverified':
+        return const Color(0xFFFF9800);
+      default:
+        return const Color(0xFF2a86c9);
+    }
+  }
+
+  Widget _buildVerifiedFilterHeader() {
+    return Container(
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        color: _getVerifiedTabPrimaryColor().withOpacity(0.05),
+        borderRadius: BorderRadius.circular(16),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withOpacity(0.04),
+            blurRadius: 12,
+            offset: const Offset(0, 4),
+          ),
+        ],
+        border: Border.all(color: Colors.grey.shade100),
+      ),
+      child: SingleChildScrollView(
+        scrollDirection: Axis.horizontal,
+        physics: const ClampingScrollPhysics(),
+        child: Row(
+          children: [
+            Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  '$_selectedVerifiedFilter Leads',
+                  style: const TextStyle(
+                    fontSize: 16,
+                    fontWeight: FontWeight.bold,
+                    color: Colors.black,
+                  ),
+                ),
+                const SizedBox(height: 2),
+                Text(
+                  '$_totalVerifiedLeads Leads',
+                  style: const TextStyle(
+                    fontSize: 12,
+                    color: Colors.black,
+                    fontWeight: FontWeight.w500,
+                  ),
+                ),
+              ],
+            ),
+            const SizedBox(width: 10),
+            Row(
+              children: [
+                InkWell(
+                  onTap: () {
+                    if (selectedIUsers.isNotEmpty) {
+                      if (transferPermission == 'true') {
+                        _transferLeads(context);
+                      } else {
+                        Common.toastMessaage(
+                          "No Permission for Transfer",
+                          Colors.red,
+                        );
+                      }
+                    } else {
+                      if (createLeadPermission == 'true') {
+                        Navigator.push(
+                          context,
+                          MaterialPageRoute(
+                            builder: (context) => AddLeadsNew(widget.token),
+                          ),
+                        ).then((_) {
+                          _fetchVerifiedTabLeads();
+                        });
+                      } else {
+                        _showPermissionDialog();
+                      }
+                    }
+                  },
+                  onLongPress: () {
+                    if (selectedIUsers.isNotEmpty) {
+                      _transferLeads(context);
+                    }
+                  },
+                  child: Container(
+                    padding: const EdgeInsets.all(8),
+                    decoration: BoxDecoration(
+                      color: selectedIUsers.isNotEmpty
+                          ? appBarStart.withOpacity(0.1)
+                          : Colors.green.shade50,
+                      borderRadius: BorderRadius.circular(10),
+                      border: Border.all(
+                        color: selectedIUsers.isNotEmpty
+                            ? appBarStart.withOpacity(0.2)
+                            : Colors.green.shade100,
+                      ),
+                    ),
+                    child: Icon(
+                      selectedIUsers.isNotEmpty
+                          ? Icons.compare_arrows_rounded
+                          : Icons.add_rounded,
+                      color: selectedIUsers.isNotEmpty
+                          ? appBarStart
+                          : Colors.green,
+                      size: 20,
+                    ),
+                  ),
+                ),
+                const SizedBox(width: 8),
+                InkWell(
+                  onTap: () {
+                    showModalBottomSheet(
+                      context: context,
+                      isScrollControlled: true,
+                      backgroundColor: Colors.transparent,
+                      builder: (context) => ViewLeadsFilterWidget(
+                        commonDetails: commonDetails,
+                        productSectionModel: productSectionModel,
+                        currentTab: _selectedVerifiedFilter,
+                        initialFilters: {
+                          'isDateFiltered': _isVerifiedTabDateFiltered,
+                          'fromDate': _verifiedFromDate ?? fromDate,
+                          'toDate': _verifiedToDate ?? toDate,
+                          'statusIds': _verifiedTabSelectedStatusIds,
+                          'staffIds': _verifiedTabSelectedStaffIds,
+                          'categoryIds': _verifiedTabSelectedCategoryIds,
+                          'priorityIds': _verifiedTabSelectedPriorityIds,
+                          'productIds': _verifiedTabSelectedProductIds,
+                        },
+                        isActiveLeads: "",
+                        onApplyFilters: (filters) {
+                          setState(() {
+                            _isVerifiedTabLoading = true;
+                            _verifiedTabLeads = [];
+                            _verifiedFromDate =
+                                filters['fromDate'] ?? DateTime.now();
+                            _verifiedToDate =
+                                filters['toDate'] ?? DateTime.now();
+                            _verifiedTabSelectedStatusIds = List<String>.from(
+                              filters['statusIds'] ?? [],
+                            );
+                            _verifiedTabSelectedStaffIds = List<String>.from(
+                              filters['staffIds'] ?? [],
+                            );
+                            _verifiedTabSelectedCategoryIds = List<String>.from(
+                              filters['categoryIds'] ?? [],
+                            );
+                            _verifiedTabSelectedPriorityIds = List<String>.from(
+                              filters['priorityIds'] ?? [],
+                            );
+                            _verifiedTabSelectedProductIds = List<String>.from(
+                              filters['productIds'] ?? [],
+                            );
+                            _verifiedTabSelectedTagIds = List<String>.from(
+                              filters['tagIds'] ?? [],
+                            );
+                            _isVerifiedTabDateFiltered =
+                                filters['isDateFiltered'] ?? false;
+                            _verifiedTabPage = 1;
+                          });
+                          _fetchVerifiedTabLeads();
+                        },
+                      ),
+                    );
+                  },
+                  child: Container(
+                    padding: const EdgeInsets.all(8),
+                    decoration: BoxDecoration(
+                      color: (_isVerifiedTabDateFiltered ||
+                              _verifiedTabSelectedStatusIds.isNotEmpty ||
+                              _verifiedTabSelectedStaffIds.isNotEmpty ||
+                              _verifiedTabSelectedCategoryIds.isNotEmpty ||
+                              _verifiedTabSelectedPriorityIds.isNotEmpty ||
+                              _verifiedTabSelectedProductIds.isNotEmpty ||
+                              _verifiedTabSelectedTagIds.isNotEmpty)
+                          ? appBarStart.withOpacity(0.15)
+                          : Colors.grey.shade100,
+                      borderRadius: BorderRadius.circular(10),
+                      border: Border.all(
+                        color: (_isVerifiedTabDateFiltered ||
+                                _verifiedTabSelectedStatusIds.isNotEmpty ||
+                                _verifiedTabSelectedStaffIds.isNotEmpty ||
+                                _verifiedTabSelectedCategoryIds.isNotEmpty ||
+                                _verifiedTabSelectedPriorityIds.isNotEmpty ||
+                                _verifiedTabSelectedProductIds.isNotEmpty ||
+                                _verifiedTabSelectedTagIds.isNotEmpty)
+                            ? appBarStart.withOpacity(0.3)
+                            : Colors.grey.shade200,
+                      ),
+                    ),
+                    child: Icon(
+                      Icons.filter_alt_outlined,
+                      color: (_isVerifiedTabDateFiltered ||
+                              _verifiedTabSelectedStatusIds.isNotEmpty ||
+                              _verifiedTabSelectedStaffIds.isNotEmpty ||
+                              _verifiedTabSelectedCategoryIds.isNotEmpty ||
+                              _verifiedTabSelectedPriorityIds.isNotEmpty ||
+                              _verifiedTabSelectedProductIds.isNotEmpty ||
+                              _verifiedTabSelectedTagIds.isNotEmpty)
+                          ? appBarStart
+                          : Colors.grey,
+                      size: 20,
+                    ),
+                  ),
+                ),
+                const SizedBox(width: 8),
+                InkWell(
+                  onTap: () {
+                    Navigator.push(
+                      context,
+                      MaterialPageRoute(
+                        builder: (context) => Search(
+                          token: widget.token!,
+                          editLead: updateLeadPermission1,
+                          deleteLead: deleteLeadPermission1,
+                          cloudCall: cloudCallPermission1,
+                          leadType: '',
+                        ),
+                      ),
+                    ).then((_) {
+                      _fetchVerifiedTabLeads();
+                    });
+                  },
+                  child: Container(
+                    padding: const EdgeInsets.all(8),
+                    decoration: BoxDecoration(
+                      color: appBarStart,
+                      borderRadius: BorderRadius.circular(10),
+                      boxShadow: [
+                        BoxShadow(
+                          color: appBarStart.withOpacity(0.3),
+                          blurRadius: 8,
+                          offset: const Offset(0, 4),
+                        ),
+                      ],
+                    ),
+                    child: const Icon(
+                      Icons.search_rounded,
+                      color: Colors.white,
+                      size: 20,
+                    ),
+                  ),
+                ),
+                const SizedBox(width: 8),
+                InkWell(
+                  onTap: () {
+                    setState(() {
+                      _isVerifiedSortAscending = !_isVerifiedSortAscending;
+                      _verifiedTabSortOrder =
+                          _isVerifiedSortAscending ? 'asc' : 'desc';
+                    });
+                    _fetchVerifiedTabLeads();
+                  },
+                  child: Container(
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 8,
+                      vertical: 6,
+                    ),
+                    decoration: BoxDecoration(
+                      color: Colors.white,
+                      borderRadius: BorderRadius.circular(10),
+                      border: Border.all(
+                        color: Colors.grey.shade200,
+                      ),
+                    ),
+                    child: Row(
+                      children: [
+                        Icon(
+                          _isVerifiedSortAscending
+                              ? Icons.arrow_upward
+                              : Icons.arrow_downward,
+                          color: appBarStart,
+                          size: 16,
+                        ),
+                      ],
+                    ),
+                  ),
+                ),
+                const SizedBox(width: 8),
+                InkWell(
+                  onTap: () {
+                    setState(() {
+                      _isCompactView = !_isCompactView;
+                    });
+                  },
+                  child: Container(
+                    padding: const EdgeInsets.all(8),
+                    decoration: BoxDecoration(
+                      color: _isCompactView
+                          ? appBarStart.withOpacity(0.1)
+                          : Colors.grey.shade100,
+                      borderRadius: BorderRadius.circular(10),
+                      border: Border.all(
+                        color: _isCompactView
+                            ? appBarStart.withOpacity(0.2)
+                            : Colors.grey.shade200,
+                      ),
+                    ),
+                    child: Icon(
+                      _isCompactView
+                          ? Icons.view_agenda_rounded
+                          : Icons.view_headline_rounded,
+                      color: _isCompactView ? appBarStart : Colors.grey,
+                      size: 20,
+                    ),
+                  ),
+                ),
+              ],
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildVerifiedTabContent() {
+    return Column(
+      children: [
+        _buildVerifiedFilterHeader(),
+        const SizedBox(height: 12),
+        if (_isVerifiedTabLoading)
+          _buildListShimmer()
+        else if (_verifiedTabLeads.isEmpty)
+          Column(
+            children: [
+              const SizedBox(height: 50),
+              Icon(
+                Icons.inbox_outlined,
+                size: 80,
+                color: Colors.grey.shade400,
+              ),
+              const SizedBox(height: 16),
+              const Text(
+                'No leads found for this category',
+                style: TextStyle(color: textSecondary),
+              ),
+            ],
+          )
+        else
+          ListView.builder(
+            padding: EdgeInsets.zero,
+            shrinkWrap: true,
+            physics: const NeverScrollableScrollPhysics(),
+            itemCount: _verifiedTabLeads.length,
+            itemBuilder: (context, index) {
+              final lead = _verifiedTabLeads[index];
+              return _buildLeadListItem(
+                lead,
+                index,
+                sourceList: _verifiedTabLeads,
+              );
+            },
+          ),
+        if (_isVerifiedTabLoadingMore)
+          const Padding(
+            padding: EdgeInsets.symmetric(vertical: 16),
+            child: Center(
+              child: CircularProgressIndicator(),
+            ),
+          ),
+        const SizedBox(height: 40),
+      ],
+    );
+  }
+
+  Widget _buildLeadListItem(Detail lead, int index, {List<Detail>? sourceList}) {
     bool isCreatedToday = false;
     try {
       if (lead.createdDate.isNotEmpty) {
@@ -5447,8 +6192,12 @@ class _DashboardLeadNewUpdatedTwoState extends State<DashboardLeadNewUpdatedTwo>
               motion: const ScrollMotion(),
               children: [
                 SlidableAction(
-                  onPressed: (context) =>
-                      _showLeadDetailsPopup(index, autoExpandFollowup: true),
+                  onPressed: (context) => _showLeadDetailsPopup(
+                    index,
+                    autoExpandFollowup: true,
+                    customCallMasterId: lead.callMasterId,
+                    sourceList: sourceList,
+                  ),
                   backgroundColor: followupBlue,
                   foregroundColor: Colors.white,
                   icon: Icons.add_comment_rounded,
@@ -5482,12 +6231,16 @@ class _DashboardLeadNewUpdatedTwoState extends State<DashboardLeadNewUpdatedTwo>
             child: InkWell(
               onTap: () {
                 if (selectedIUsers.isNotEmpty) {
-                  _handleLongPress(index);
+                  _handleLongPress(index, sourceList: sourceList);
                 } else {
-                  _showLeadDetailsPopup(index);
+                  _showLeadDetailsPopup(
+                    index,
+                    customCallMasterId: lead.callMasterId,
+                    sourceList: sourceList,
+                  );
                 }
               },
-              onLongPress: () => _handleLongPress(index),
+              onLongPress: () => _handleLongPress(index, sourceList: sourceList),
               child: ClipRRect(
                 borderRadius: BorderRadius.circular(16),
                 child: Row(
@@ -5515,7 +6268,11 @@ class _DashboardLeadNewUpdatedTwoState extends State<DashboardLeadNewUpdatedTwo>
                               children: [
                                 Expanded(
                                   child: InkWell(
-                                    onTap: () => _showLeadDetailsPopup(index),
+                                    onTap: () => _showLeadDetailsPopup(
+                                      index,
+                                      customCallMasterId: lead.callMasterId,
+                                      sourceList: sourceList,
+                                    ),
                                     child: Text(
                                       lead.clientName.isEmpty ||
                                               lead.clientName == "null"
@@ -5753,7 +6510,11 @@ class _DashboardLeadNewUpdatedTwoState extends State<DashboardLeadNewUpdatedTwo>
                                           _showCallPermissionDialog(index);
                                         } else {
                                           if (cloudCallPermission1) {
-                                            chooseCallDialog(context, index);
+                                            chooseCallDialog(
+                                              context,
+                                              index,
+                                              sourceList: sourceList,
+                                            );
                                           } else {
                                             Common.dialPad(lead.contactNumber1);
                                           }
@@ -5798,8 +6559,12 @@ class _DashboardLeadNewUpdatedTwoState extends State<DashboardLeadNewUpdatedTwo>
           motion: const ScrollMotion(),
           children: [
             SlidableAction(
-              onPressed: (context) =>
-                  _showLeadDetailsPopup(index, autoExpandFollowup: true),
+              onPressed: (context) => _showLeadDetailsPopup(
+                index,
+                autoExpandFollowup: true,
+                customCallMasterId: lead.callMasterId,
+                sourceList: sourceList,
+              ),
               backgroundColor: followupBlue,
               foregroundColor: Colors.white,
               icon: Icons.add_comment_rounded,
@@ -5832,12 +6597,16 @@ class _DashboardLeadNewUpdatedTwoState extends State<DashboardLeadNewUpdatedTwo>
         child: InkWell(
           onTap: () {
             if (selectedIUsers.isNotEmpty) {
-              _handleLongPress(index);
+              _handleLongPress(index, sourceList: sourceList);
             } else {
-              _showLeadDetailsPopup(index);
+              _showLeadDetailsPopup(
+                index,
+                customCallMasterId: lead.callMasterId,
+                sourceList: sourceList,
+              );
             }
           },
-          onLongPress: () => _handleLongPress(index),
+          onLongPress: () => _handleLongPress(index, sourceList: sourceList),
           borderRadius: BorderRadius.circular(16),
           child: Container(
             decoration: BoxDecoration(
@@ -6154,7 +6923,11 @@ class _DashboardLeadNewUpdatedTwoState extends State<DashboardLeadNewUpdatedTwo>
                                     _showCallPermissionDialog(index);
                                   } else {
                                     if (cloudCallPermission1) {
-                                      chooseCallDialog(context, index);
+                                      chooseCallDialog(
+                                        context,
+                                        index,
+                                        sourceList: sourceList,
+                                      );
                                     } else {
                                       Common.dialPad(lead.contactNumber1);
                                     }
@@ -12651,6 +13424,22 @@ class _DashboardLeadNewUpdatedTwoState extends State<DashboardLeadNewUpdatedTwo>
                           graphId: '-3',
                         ),
                         _buildListSummaryItemOld(
+                          'CNG',
+                          dashboardMainCounts != null
+                              ? (dashboardMainCounts
+                                          ?.data.leads.callNotGetting ??
+                                      0)
+                                  .toString()
+                              : (data.callNotGetting ?? 0).toString(),
+                          Icons.phone_missed_rounded,
+                          _colors[5],
+                          '0',
+                          leadType: '1',
+                          callStatus: '9',
+                          isCalled: true,
+                          graphId: '9',
+                        ),
+                        _buildListSummaryItemOld(
                           'Called',
                           dashboardMainCounts != null
                               ? (dashboardMainCounts?.data.leads.calledCount ??
@@ -12686,12 +13475,33 @@ class _DashboardLeadNewUpdatedTwoState extends State<DashboardLeadNewUpdatedTwo>
                               ? (dashboardMainCounts?.data.leads.closedLeads ??
                                       0)
                                   .toString()
-                              : '0',
+                              : (dashboardCounts != null
+                                  ? (dashboardCounts
+                                              ?.data?.leads?.closedLeads ??
+                                          0)
+                                      .toString()
+                                  : '0'),
                           Icons.check_circle_outline_rounded,
                           _colors[4],
                           '4',
                           isCalled: false,
                           graphId: '4',
+                        ),
+                        _buildListSummaryItemOld(
+                          'Plan Presented',
+                          dashboardMainCounts != null
+                              ? (dashboardMainCounts
+                                          ?.data.leads.planPresented ??
+                                      0)
+                                  .toString()
+                              : (data.planPresented ?? 0).toString(),
+                          Icons.co_present_rounded,
+                          _colors[13],
+                          '7',
+                          leadType: '1',
+                          callStatus: '7',
+                          isCalled: false,
+                          graphId: '7',
                         ),
                       ],
                     ),
@@ -12715,7 +13525,7 @@ class _DashboardLeadNewUpdatedTwoState extends State<DashboardLeadNewUpdatedTwo>
                             isCalled: true,
                           ),
                         ),
-                        const SizedBox(width: 8),
+                        const SizedBox(width: 6),
                         Expanded(
                           child: _buildListSummaryItemActive(
                             'Followup',
@@ -12731,7 +13541,7 @@ class _DashboardLeadNewUpdatedTwoState extends State<DashboardLeadNewUpdatedTwo>
                             isCalled: false,
                           ),
                         ),
-                        const SizedBox(width: 8),
+                        const SizedBox(width: 6),
                         Expanded(
                           child: _buildListSummaryItem(
                             'Missed',
@@ -12748,6 +13558,25 @@ class _DashboardLeadNewUpdatedTwoState extends State<DashboardLeadNewUpdatedTwo>
                             callStatus: '-1',
                             isCalled: true,
                             graphId: '-3',
+                          ),
+                        ),
+                        const SizedBox(width: 6),
+                        Expanded(
+                          child: _buildListSummaryItem(
+                            'CNG',
+                            dashboardMainCounts != null
+                                ? (dashboardMainCounts
+                                            ?.data.leads.callNotGetting ??
+                                        0)
+                                    .toString()
+                                : (data.callNotGetting ?? 0).toString(),
+                            Icons.phone_missed_rounded,
+                            _colors[5],
+                            '9',
+                            // leadType: '1',
+                            // callStatus: '9',
+                            isCalled: true,
+                            graphId: '9',
                           ),
                         ),
                       ],
@@ -12773,7 +13602,7 @@ class _DashboardLeadNewUpdatedTwoState extends State<DashboardLeadNewUpdatedTwo>
                             graphId: '-1',
                           ),
                         ),
-                        const SizedBox(width: 8),
+                        const SizedBox(width: 6),
                         Expanded(
                           child: _buildListSummaryItem(
                             'Transferred',
@@ -12791,20 +13620,45 @@ class _DashboardLeadNewUpdatedTwoState extends State<DashboardLeadNewUpdatedTwo>
                             isCalled: true,
                           ),
                         ),
-                        const SizedBox(width: 8),
+                        const SizedBox(width: 6),
                         Expanded(
                           child: _buildListSummaryItem(
                             'Closed',
-                            dashboardCounts != null
-                                ? (dashboardCounts?.data?.leads?.closedLeads ??
+                            dashboardMainCounts != null
+                                ? (dashboardMainCounts
+                                            ?.data.leads.closedLeads ??
                                         0)
                                     .toString()
-                                : '0',
+                                : (dashboardCounts != null
+                                    ? (dashboardCounts
+                                                ?.data?.leads?.closedLeads ??
+                                            0)
+                                        .toString()
+                                    : '0'),
                             Icons.check_circle_outline_rounded,
                             _colors[4], // Standardized Green for Closed
                             '4',
                             isCalled: false,
                             graphId: '4',
+                          ),
+                        ),
+                        const SizedBox(width: 6),
+                        Expanded(
+                          child: _buildListSummaryItem(
+                            'Plan Presented',
+                            dashboardMainCounts != null
+                                ? (dashboardMainCounts
+                                            ?.data.leads.planPresented ??
+                                        0)
+                                    .toString()
+                                : (data.planPresented ?? 0).toString(),
+                            Icons.co_present_rounded,
+                            _colors[13],
+                            '7',
+                            // leadType: '1',
+                            // callStatus: '7',
+                            isCalled: false,
+                            graphId: '7',
                           ),
                         ),
                       ],
@@ -12971,23 +13825,40 @@ class _DashboardLeadNewUpdatedTwoState extends State<DashboardLeadNewUpdatedTwo>
                                         toDate,
                                         effectiveGraphStatus,
                                       )
-                                    : await getLeadProgressbar(
-                                        widget.token!,
-                                        fromDate,
-                                        toDate,
-                                        effectiveGraphStatus,
-                                      );
+                                    : label == "CNG"
+                                        ? await getLeadProgressbarData(
+                                            widget.token!,
+                                            fromDate,
+                                            toDate,
+                                            "9",
+                                          )
+                                        : label == "Plan Presented"
+                                            ? await getLeadProgressbarData(
+                                                widget.token!,
+                                                fromDate,
+                                                toDate,
+                                                "7",
+                                              )
+                                            : await getLeadProgressbar(
+                                                widget.token!,
+                                                fromDate,
+                                                toDate,
+                                                effectiveGraphStatus,
+                                              );
 
-                if (object1!.status == true) {
+                if (object1?.status == true) {
                   if (context.mounted) {
                     Navigator.pop(context);
                     leadProgressbarDialog(
                       context,
                       label,
-                      "\$label Leads",
+                      "$label Leads",
                       status,
                       leadType ?? "",
-                      callStatus: callStatus,
+                      callStatus: callStatus ??
+                          (label == "CNG"
+                              ? "9"
+                              : (label == "Plan Presented" ? "7" : null)),
                     );
                   }
                 }
@@ -13178,23 +14049,40 @@ class _DashboardLeadNewUpdatedTwoState extends State<DashboardLeadNewUpdatedTwo>
                                         toDate,
                                         effectiveGraphStatus,
                                       )
-                                    : await getLeadProgressbar(
-                                        widget.token!,
-                                        fromDate,
-                                        toDate,
-                                        effectiveGraphStatus,
-                                      );
+                                    : label == "CNG"
+                                        ? await getLeadProgressbarData(
+                                            widget.token!,
+                                            fromDate,
+                                            toDate,
+                                            "9",
+                                          )
+                                        : label == "Plan Presented"
+                                            ? await getLeadProgressbarData(
+                                                widget.token!,
+                                                fromDate,
+                                                toDate,
+                                                "7",
+                                              )
+                                            : await getLeadProgressbar(
+                                                widget.token!,
+                                                fromDate,
+                                                toDate,
+                                                effectiveGraphStatus,
+                                              );
 
-                if (object1!.status == true) {
+                if (object1?.status == true) {
                   if (context.mounted) {
                     Navigator.pop(context);
                     leadProgressbarDialog(
                       context,
                       label,
-                      "\$label Leads",
+                      "$label Leads",
                       status,
                       leadType ?? "",
-                      callStatus: callStatus,
+                      callStatus: callStatus ??
+                          (label == "CNG"
+                              ? "9"
+                              : (label == "Plan Presented" ? "7" : null)),
                     );
                   }
                 }
@@ -13392,14 +14280,28 @@ class _DashboardLeadNewUpdatedTwoState extends State<DashboardLeadNewUpdatedTwo>
                                         toDate,
                                         effectiveGraphStatus,
                                       )
-                                    : await getLeadProgressbar(
-                                        widget.token!,
-                                        fromDate,
-                                        toDate,
-                                        effectiveGraphStatus,
-                                      );
+                                    : label == "CNG"
+                                        ? await getLeadProgressbarData(
+                                            widget.token!,
+                                            fromDate,
+                                            toDate,
+                                            "9",
+                                          )
+                                        : label == "Plan Presented"
+                                            ? await getLeadProgressbarData(
+                                                widget.token!,
+                                                fromDate,
+                                                toDate,
+                                                "7",
+                                              )
+                                            : await getLeadProgressbar(
+                                                widget.token!,
+                                                fromDate,
+                                                toDate,
+                                                effectiveGraphStatus,
+                                              );
 
-                if (object1!.status == true) {
+                if (object1?.status == true) {
                   if (context.mounted) {
                     Navigator.pop(context);
                     leadProgressbarDialog(
@@ -13408,7 +14310,10 @@ class _DashboardLeadNewUpdatedTwoState extends State<DashboardLeadNewUpdatedTwo>
                       "$label Leads",
                       status,
                       leadType ?? "",
-                      callStatus: callStatus,
+                      callStatus: callStatus ??
+                          (label == "CNG"
+                              ? "9"
+                              : (label == "Plan Presented" ? "7" : null)),
                     );
                   }
                 }
@@ -13606,14 +14511,28 @@ class _DashboardLeadNewUpdatedTwoState extends State<DashboardLeadNewUpdatedTwo>
                                         toDate,
                                         effectiveGraphStatus,
                                       )
-                                    : await getLeadProgressbar(
-                                        widget.token!,
-                                        fromDate,
-                                        toDate,
-                                        effectiveGraphStatus,
-                                      );
+                                    : label == "CNG"
+                                        ? await getLeadProgressbarData(
+                                            widget.token!,
+                                            fromDate,
+                                            toDate,
+                                            "9",
+                                          )
+                                        : label == "Plan Presented"
+                                            ? await getLeadProgressbarData(
+                                                widget.token!,
+                                                fromDate,
+                                                toDate,
+                                                "7",
+                                              )
+                                            : await getLeadProgressbar(
+                                                widget.token!,
+                                                fromDate,
+                                                toDate,
+                                                effectiveGraphStatus,
+                                              );
 
-                if (object1!.status == true) {
+                if (object1?.status == true) {
                   if (context.mounted) {
                     Navigator.pop(context);
                     leadProgressbarDialogActive(
@@ -13622,7 +14541,10 @@ class _DashboardLeadNewUpdatedTwoState extends State<DashboardLeadNewUpdatedTwo>
                       "$label Leads",
                       status,
                       leadType ?? "",
-                      callStatus: callStatus,
+                      callStatus: callStatus ??
+                          (label == "CNG"
+                              ? "9"
+                              : (label == "Plan Presented" ? "7" : null)),
                     );
                   }
                 }
@@ -16174,15 +17096,32 @@ class _DashboardLeadNewUpdatedTwoState extends State<DashboardLeadNewUpdatedTwo>
                             margin: const EdgeInsets.only(bottom: 12),
                             child: GestureDetector(
                               onTap: () {
-                                // Navigator.pop(context);
+                                final bool isCng = label == 'CNG' ||
+                                    callStatus == '9' ||
+                                    (title?.contains('CNG') == true);
+                                final bool isPlanPresented =
+                                    label == 'Plan Presented' ||
+                                        callStatus == '7' ||
+                                        (title?.contains('Plan Presented') ==
+                                            true);
                                 _navigateToFilteredLeads(
                                   context: context,
                                   staffName: staff.staffName,
                                   staffId: staff.staffId,
                                   title: title ?? 'Leads',
-                                  status: status ?? '0',
+                                  status: isCng
+                                      ? '9'
+                                      : (isPlanPresented
+                                          ? '7'
+                                          : (status ?? '0')),
                                   type: type ?? '',
-                                  callStatus: callStatus,
+                                  callStatus: callStatus ??
+                                      (isCng
+                                          ? '9'
+                                          : (isPlanPresented ? '7' : null)),
+                                  callResultId: isCng
+                                      ? '9'
+                                      : (isPlanPresented ? '7' : null),
                                   isGlobalContext: true,
                                 );
                               },
@@ -16360,12 +17299,29 @@ class _DashboardLeadNewUpdatedTwoState extends State<DashboardLeadNewUpdatedTwo>
                             child: GestureDetector(
                               onTap: () {
                                 Navigator.pop(context);
+                                final bool isCng = label == 'CNG' ||
+                                    callStatus == '9' ||
+                                    (title?.contains('CNG') == true);
+                                final bool isPlanPresented =
+                                    label == 'Plan Presented' ||
+                                        callStatus == '7' ||
+                                        (title?.contains('Plan Presented') ==
+                                            true);
                                 _navigateToFilteredLeads(
                                   context: context,
                                   categoryName: cat.categoryName,
                                   categoryId: cat.categoryId,
                                   title: title,
-                                  status: status,
+                                  status: isCng
+                                      ? '9'
+                                      : (isPlanPresented ? '7' : status),
+                                  callStatus: callStatus ??
+                                      (isCng
+                                          ? '9'
+                                          : (isPlanPresented ? '7' : null)),
+                                  callResultId: isCng
+                                      ? '9'
+                                      : (isPlanPresented ? '7' : null),
                                   isGlobalContext: true,
                                 );
                               },
@@ -16544,13 +17500,30 @@ class _DashboardLeadNewUpdatedTwoState extends State<DashboardLeadNewUpdatedTwo>
                             child: GestureDetector(
                               onTap: () {
                                 Navigator.pop(context);
+                                final bool isCng = label == 'CNG' ||
+                                    callStatus == '9' ||
+                                    (title?.contains('CNG') == true);
+                                final bool isPlanPresented =
+                                    label == 'Plan Presented' ||
+                                        callStatus == '7' ||
+                                        (title?.contains('Plan Presented') ==
+                                            true);
                                 _navigateToFilteredLeads(
                                   context: context,
                                   staffName: missed.missedstaffName,
                                   staffId: missed.missedstaffId,
                                   title: title,
-                                  status: status,
+                                  status: isCng
+                                      ? '9'
+                                      : (isPlanPresented ? '7' : status),
                                   type: type,
+                                  callStatus: callStatus ??
+                                      (isCng
+                                          ? '9'
+                                          : (isPlanPresented ? '7' : null)),
+                                  callResultId: isCng
+                                      ? '9'
+                                      : (isPlanPresented ? '7' : null),
                                   isGlobalContext: true,
                                 );
                               },
@@ -17105,16 +18078,30 @@ class _DashboardLeadNewUpdatedTwoState extends State<DashboardLeadNewUpdatedTwo>
                             margin: const EdgeInsets.only(bottom: 12),
                             child: GestureDetector(
                               onTap: () async {
-                                // Navigator.pop(context);
-
+                                final bool isCng = label == 'CNG' ||
+                                    callStatus == '9' ||
+                                    (title?.contains('CNG') == true);
+                                final bool isPlanPresented =
+                                    label == 'Plan Presented' ||
+                                        callStatus == '7' ||
+                                        (title?.contains('Plan Presented') ==
+                                            true);
                                 await _navigateToFilteredLeadsActive(
                                   context: context,
                                   staffName: staff.staffName,
                                   staffId: staff.staffId,
                                   title: title,
-                                  status: status,
+                                  status: isCng
+                                      ? '9'
+                                      : (isPlanPresented ? '7' : status),
                                   type: type,
-                                  callStatus: callStatus,
+                                  callStatus: callStatus ??
+                                      (isCng
+                                          ? '9'
+                                          : (isPlanPresented ? '7' : null)),
+                                  callResultId: isCng
+                                      ? '9'
+                                      : (isPlanPresented ? '7' : null),
                                   isGlobalContext: true,
                                   isFollowup: "1",
                                 );
@@ -17293,12 +18280,29 @@ class _DashboardLeadNewUpdatedTwoState extends State<DashboardLeadNewUpdatedTwo>
                             child: GestureDetector(
                               onTap: () {
                                 Navigator.pop(context);
+                                final bool isCng = label == 'CNG' ||
+                                    callStatus == '9' ||
+                                    (title?.contains('CNG') == true);
+                                final bool isPlanPresented =
+                                    label == 'Plan Presented' ||
+                                        callStatus == '7' ||
+                                        (title?.contains('Plan Presented') ==
+                                            true);
                                 _navigateToFilteredLeads(
                                   context: context,
                                   categoryName: cat.categoryName,
                                   categoryId: cat.categoryId,
                                   title: title,
-                                  status: status,
+                                  status: isCng
+                                      ? '9'
+                                      : (isPlanPresented ? '7' : status),
+                                  callStatus: callStatus ??
+                                      (isCng
+                                          ? '9'
+                                          : (isPlanPresented ? '7' : null)),
+                                  callResultId: isCng
+                                      ? '9'
+                                      : (isPlanPresented ? '7' : null),
                                   isGlobalContext: true,
                                 );
                               },
@@ -17477,13 +18481,30 @@ class _DashboardLeadNewUpdatedTwoState extends State<DashboardLeadNewUpdatedTwo>
                             child: GestureDetector(
                               onTap: () {
                                 Navigator.pop(context);
+                                final bool isCng = label == 'CNG' ||
+                                    callStatus == '9' ||
+                                    (title?.contains('CNG') == true);
+                                final bool isPlanPresented =
+                                    label == 'Plan Presented' ||
+                                        callStatus == '7' ||
+                                        (title?.contains('Plan Presented') ==
+                                            true);
                                 _navigateToFilteredLeads(
                                   context: context,
                                   staffName: missed.missedstaffName,
                                   staffId: missed.missedstaffId,
                                   title: title,
-                                  status: status,
+                                  status: isCng
+                                      ? '9'
+                                      : (isPlanPresented ? '7' : status),
                                   type: type,
+                                  callStatus: callStatus ??
+                                      (isCng
+                                          ? '9'
+                                          : (isPlanPresented ? '7' : null)),
+                                  callResultId: isCng
+                                      ? '9'
+                                      : (isPlanPresented ? '7' : null),
                                   isGlobalContext: true,
                                 );
                               },
@@ -17834,6 +18855,24 @@ class _DashboardLeadNewUpdatedTwoState extends State<DashboardLeadNewUpdatedTwo>
         return _colors[8].withOpacity(0.08);
       case 'Closed':
         return _colors[4].withOpacity(0.08);
+      case 'Today Called':
+        return _colors[1].withOpacity(0.08);
+      case 'Total Called':
+        return _colors[6].withOpacity(0.08);
+      case 'CNG':
+        return _colors[5].withOpacity(0.08);
+      case 'Invalid':
+        return _colors[3].withOpacity(0.08);
+      case 'Plan Presented':
+        return _colors[13].withOpacity(0.08);
+      case 'Verified':
+        return _colors[4].withOpacity(0.08);
+      case 'Boy Data':
+        return _colors[8].withOpacity(0.08);
+      case 'Girl Data':
+        return const Color(0xFFE91E63).withOpacity(0.08);
+      case 'Unverified':
+        return const Color(0xFFFF9800).withOpacity(0.08);
       default:
         return backgroundLight;
     }
@@ -17853,6 +18892,24 @@ class _DashboardLeadNewUpdatedTwoState extends State<DashboardLeadNewUpdatedTwo>
         return _colors[8];
       case 'Closed':
         return _colors[4];
+      case 'Today Called':
+        return _colors[1];
+      case 'Total Called':
+        return _colors[6];
+      case 'CNG':
+        return _colors[5];
+      case 'Invalid':
+        return _colors[3];
+      case 'Plan Presented':
+        return _colors[13];
+      case 'Verified':
+        return _colors[4];
+      case 'Boy Data':
+        return _colors[8];
+      case 'Girl Data':
+        return const Color(0xFFE91E63);
+      case 'Unverified':
+        return const Color(0xFFFF9800);
       default:
         return textPrimary;
     }
@@ -18036,9 +19093,11 @@ class _DashboardLeadNewUpdatedTwoState extends State<DashboardLeadNewUpdatedTwo>
     }
   }
 
-  void _handleLongPress(int index) {
+  void _handleLongPress(int index, {List<Detail>? sourceList}) {
     setState(() {
-      final lead = listTabLeads[index];
+      final list = sourceList ?? listTabLeads;
+      if (index < 0 || index >= list.length) return;
+      final lead = list[index];
       lead.isSelected = !lead.isSelected;
       if (lead.isSelected) {
         selectedIUsers.add(lead.callMasterId);
@@ -18059,8 +19118,15 @@ class _DashboardLeadNewUpdatedTwoState extends State<DashboardLeadNewUpdatedTwo>
       for (var item in listTabLeads) {
         item.isSelected = false;
       }
+      for (var item in _verifiedTabLeads) {
+        item.isSelected = false;
+      }
     });
-    if (_listTabFilter == "Followup") {
+    final bool isVerifiedActive =
+        _tabController.length == 4 && _tabController.index == 0;
+    if (isVerifiedActive) {
+      _fetchVerifiedTabLeads();
+    } else if (_listTabFilter == "Followup") {
       _fetchTabLeadsActive();
     } else {
       _fetchTabLeads();

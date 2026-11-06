@@ -2755,7 +2755,7 @@ class _AllReportState extends State<AllReport> {
                           mainAxisAlignment: MainAxisAlignment.start,
                           crossAxisAlignment: CrossAxisAlignment.start,
                           children: [
-                            const Text('Lead Category'),
+                            const Text('Stream'),
                             const SizedBox(
                               height: 10,
                             ),
@@ -2766,7 +2766,7 @@ class _AllReportState extends State<AllReport> {
                                     builder: (BuildContext context) {
                                       return AlertDialog(
                                         scrollable: true,
-                                        title: const Text('Lead Category'),
+                                        title: const Text('Stream'),
                                         content: SizedBox(
                                           height: MediaQuery.of(context)
                                                   .size
@@ -2886,7 +2886,7 @@ class _AllReportState extends State<AllReport> {
                                         ? const Padding(
                                             padding: EdgeInsets.only(
                                                 left: 10, top: 15, bottom: 10),
-                                            child: Text('Lead Category'))
+                                            child: Text('Stream'))
                                         : Padding(
                                             padding: const EdgeInsets.only(
                                                 right: 40),

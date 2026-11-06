@@ -74,6 +74,7 @@ import 'package:login2/models/lead_management/customerModel.dart';
 import 'package:login2/models/lead_management/dailyAllCountModel.dart';
 import 'package:login2/models/lead_management/damagedListApiModel.dart';
 import 'package:login2/models/lead_management/dashboardLeadsCountsModel.dart';
+import 'package:login2/models/lead_management/verificationDashboardModel.dart';
 import 'package:login2/models/lead_management/deletRentalReturnModel.dart';
 import 'package:login2/models/lead_management/deleteGoogleDriveFileModel.dart';
 import 'package:login2/models/lead_management/deleteModelOpenstock.dart';
@@ -1329,7 +1330,7 @@ class HttpService {
       var result = await _dio.get("${await Config.getUrl()}lead_details",
           options: Options(receiveTimeout: const Duration(seconds: 30)),
           queryParameters: params);
-
+      // print('lead_details:$result'); 
       if (result.statusCode == 200) {
         LeadDeatailsModel model = LeadDeatailsModel.fromJson(result.data);
         return model;
@@ -1475,7 +1476,13 @@ class HttpService {
       {String? products,
       bool? createCustomer,
       String? whatsappLead,
-      String? emailLead}) async {
+      String? emailLead,
+      String? school,
+      String? area,
+      String? gender,
+      String? contactNumber2,
+      String? contactNumber3,
+      String? clientName}) async {
     var formData = FormData.fromMap({
       "token": token,
       "next_followup_date": nextFollowupDate,
@@ -1518,6 +1525,16 @@ class HttpService {
       "whatsapp_number_lead": whatsappLead ?? '',
       "email_lead": emailLead ?? '',
       if (createCustomer != null) "create_customer": createCustomer,
+      if (school != null && school.isNotEmpty) "school": school,
+      if (school != null && school.isNotEmpty) "school_name": school,
+      if (area != null && area.isNotEmpty) "area": area,
+      if (gender != null && gender.isNotEmpty) "gender": gender,
+      if (contactNumber2 != null && contactNumber2.isNotEmpty)
+        "contact_number2": contactNumber2,
+      if (contactNumber3 != null && contactNumber3.isNotEmpty)
+        "contact_number3": contactNumber3,
+      if (clientName != null && clientName.isNotEmpty)
+        "client_name": clientName,
     });
     try {
       var result = await _dio.post(
@@ -1661,7 +1678,13 @@ class HttpService {
       descriptions,
       {String? whatsappLead,
       String? emailLead,
-      String? products}) async {
+      String? products,
+      String? school,
+      String? area,
+      String? gender,
+      String? contactNumber2,
+      String? contactNumber3,
+      String? clientName}) async {
     var formData = FormData.fromMap({
       "token": token,
       "next_followup_date": nextFollowupDate,
@@ -1681,6 +1704,16 @@ class HttpService {
       "email_lead": emailLead ?? '',
       "products_lead": products ?? '',
       "additionalFields": jsonEncode(descriptions),
+      if (school != null && school.isNotEmpty) "school": school,
+      if (school != null && school.isNotEmpty) "school_name": school,
+      if (area != null && area.isNotEmpty) "area": area,
+      if (gender != null && gender.isNotEmpty) "gender": gender,
+      if (contactNumber2 != null && contactNumber2.isNotEmpty)
+        "contact_number2": contactNumber2,
+      if (contactNumber3 != null && contactNumber3.isNotEmpty)
+        "contact_number3": contactNumber3,
+      if (clientName != null && clientName.isNotEmpty)
+        "client_name": clientName,
     });
 
     try {
@@ -2004,6 +2037,46 @@ class HttpService {
     } catch (e) {
       log("error: $e");
     }
+  }
+
+  static Future leadProgressbarData(token, fromDate, toDate, callStatus,
+      {List<String>? staffIds}) async {
+    Map<String, dynamic> map = {
+      "token": token,
+      "fromDate": fromDate,
+      "toDate": toDate,
+      "callStatus": callStatus,
+    };
+    if (staffIds != null && staffIds.isNotEmpty) {
+      if (staffIds.length == 1) {
+        map["staffId"] = staffIds.first;
+      } else {
+        map["staffId"] = staffIds.join(',');
+      }
+    }
+    var formData = FormData.fromMap(map);
+
+    try {
+      var result = await _dio.post(
+          "${await Config.getUrl()}lead_progressbar_data",
+          data: formData);
+      if (result.statusCode == 200 && result.data != null) {
+        final data =
+            result.data is String ? json.decode(result.data) : result.data;
+        if (data is Map<String, dynamic>) {
+          LeadProgressbarModel model = LeadProgressbarModel.fromJson(data);
+          return model;
+        } else if (data is Map) {
+          LeadProgressbarModel model =
+              LeadProgressbarModel.fromJson(Map<String, dynamic>.from(data));
+          return model;
+        }
+      }
+    } catch (e) {
+      log("lead_progressbar_data error: $e");
+    }
+    return await leadProgressbar(token, fromDate, toDate, callStatus,
+        staffIds: staffIds);
   }
 
   static Future deleteLead(token, callMasterId) async {
@@ -13392,6 +13465,135 @@ class HttpService {
       }
     } catch (e) {
       log("approvedLeaveList error: $e");
+    }
+    return null;
+  }
+
+  static Future<VerificationDashboardModel?> verificationDashboard({
+    String? token,
+  }) async {
+    try {
+      final authToken = token ?? await Common.getSharedPref("token");
+      if (authToken == null || authToken.isEmpty) {
+        log("verificationDashboard error: Token not found");
+        return null;
+      }
+      final url = "${await Config.getUrl()}verification_dashboard";
+
+      try {
+        final response = await _dio.post(
+          url,
+          data: FormData.fromMap({
+            "token": authToken,
+          }),
+          options: Options(receiveTimeout: const Duration(seconds: 30)),
+        );
+        if (response.statusCode == 200 && response.data != null) {
+          final data = response.data is String
+              ? json.decode(response.data)
+              : response.data;
+          if (data is Map<String, dynamic>) {
+            return VerificationDashboardModel.fromJson(data);
+          } else if (data is Map) {
+            return VerificationDashboardModel.fromJson(
+                Map<String, dynamic>.from(data));
+          }
+        }
+      } catch (postError) {
+        log("verificationDashboard POST error: $postError, attempting GET fallback...");
+      }
+
+      final getResponse = await _dio.get(
+        url,
+        queryParameters: {
+          "token": authToken,
+        },
+        options: Options(receiveTimeout: const Duration(seconds: 30)),
+      );
+      if (getResponse.statusCode == 200 && getResponse.data != null) {
+        final data = getResponse.data is String
+            ? json.decode(getResponse.data)
+            : getResponse.data;
+        if (data is Map<String, dynamic>) {
+          return VerificationDashboardModel.fromJson(data);
+        } else if (data is Map) {
+          return VerificationDashboardModel.fromJson(
+              Map<String, dynamic>.from(data));
+        }
+      }
+    } catch (e) {
+      log("verificationDashboard error: $e");
+    }
+    return null;
+  }
+
+  static Future<LeadProgressbarModel?> verifyProgressbar({
+    String? token,
+    required dynamic status,
+    String? gender,
+    String? fromDate,
+    String? toDate,
+  }) async {
+    try {
+      final authToken = token ?? await Common.getSharedPref("token");
+      if (authToken == null || authToken.isEmpty) {
+        log("verifyProgressbar error: Token not found");
+        return null;
+      }
+      final Map<String, dynamic> map = {
+        "token": authToken,
+        "status": status,
+      };
+      if (gender != null && gender.isNotEmpty) {
+        map["gender"] = gender;
+      }
+      if (fromDate != null && fromDate.isNotEmpty) {
+        map["fromDate"] = fromDate;
+      }
+      if (toDate != null && toDate.isNotEmpty) {
+        map["toDate"] = toDate;
+      }
+
+      final url = "${await Config.getUrl()}verify_progressbar";
+      try {
+        final response = await _dio.post(
+          url,
+          data: FormData.fromMap(map),
+          options: Options(receiveTimeout: const Duration(seconds: 30)),
+        );
+        if (response.statusCode == 200 && response.data != null) {
+          final data = response.data is String
+              ? json.decode(response.data)
+              : response.data;
+          if (data is Map<String, dynamic>) {
+            return LeadProgressbarModel.fromJson(data);
+          } else if (data is Map) {
+            return LeadProgressbarModel.fromJson(
+                Map<String, dynamic>.from(data));
+          }
+        }
+      } catch (postError) {
+        log("verifyProgressbar POST error: $postError, attempting GET fallback...");
+      }
+
+      final getResponse = await _dio.get(
+        url,
+        queryParameters: map,
+        options: Options(receiveTimeout: const Duration(seconds: 30)),
+      );
+      if (getResponse.statusCode == 200 && getResponse.data != null) {
+        final data = getResponse.data is String
+            ? json.decode(getResponse.data)
+            : getResponse.data;
+        if (data is Map<String, dynamic>) {
+          return LeadProgressbarModel.fromJson(data);
+        } else if (data is Map) {
+          return LeadProgressbarModel.fromJson(
+              Map<String, dynamic>.from(data));
+        }
+      }
+    } catch (e) {
+      log("verifyProgressbar error: $e");
     }
     return null;
   }

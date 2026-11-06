@@ -42,6 +42,8 @@ class Data {
     LeadsCount currentLeadsCount;
     LeadsCount previousLeadsCount;
     int unreadNotification;
+    int? callNotGetting;
+    int? planPresented;
 
     Data({
         required this.newLeads,
@@ -53,18 +55,29 @@ class Data {
         required this.currentLeadsCount,
         required this.previousLeadsCount,
         required this.unreadNotification,
+        this.callNotGetting,
+        this.planPresented,
     });
 
+    static int? _parseInt(dynamic value) {
+      if (value == null) return null;
+      if (value is int) return value;
+      if (value is String) return int.tryParse(value);
+      return null;
+    }
+
     factory Data.fromJson(Map<String, dynamic> json) => Data(
-        newLeads: json["newLeads"],
-        followupLeads: json["followupLeads"],
-        closedLeads: json["closedLeads"],
-        totalCalled: json["totalCalled"],
-        missedLeads: json["missedLeads"],
-        transferLeads: json["transferLeads"],
-        currentLeadsCount: LeadsCount.fromJson(json["current_leads_count"]),
-        previousLeadsCount: LeadsCount.fromJson(json["previous_leads_count"]),
-        unreadNotification: json["unread_notification"],
+        newLeads: json["newLeads"] ?? 0,
+        followupLeads: json["followupLeads"] ?? 0,
+        closedLeads: json["closedLeads"] ?? 0,
+        totalCalled: json["totalCalled"] ?? 0,
+        missedLeads: json["missedLeads"] ?? 0,
+        transferLeads: json["transferLeads"] ?? 0,
+        currentLeadsCount: LeadsCount.fromJson(json["current_leads_count"] ?? {}),
+        previousLeadsCount: LeadsCount.fromJson(json["previous_leads_count"] ?? {}),
+        unreadNotification: json["unread_notification"] ?? 0,
+        callNotGetting: _parseInt(json["callNotGetting"] ?? json["call_not_getting"] ?? json["cng"] ?? json["CNG"] ?? json["cngLeads"]),
+        planPresented: _parseInt(json["planPresented"] ?? json["plan_presented"] ?? json["planPresentedLeads"]),
     );
 
     Map<String, dynamic> toJson() => {
@@ -77,6 +90,8 @@ class Data {
         "current_leads_count": currentLeadsCount.toJson(),
         "previous_leads_count": previousLeadsCount.toJson(),
         "unread_notification": unreadNotification,
+        "callNotGetting": callNotGetting,
+        "planPresented": planPresented,
     };
 }
 

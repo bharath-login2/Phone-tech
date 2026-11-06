@@ -108,7 +108,7 @@ class _AddLeadsNewState extends State<AddLeadsNew> {
   final ScrollController _scrollController = ScrollController();
 
   // Form Fields
-  String leadType = 'Lead Category', leadTypeId = '';
+  String leadType = 'Stream', leadTypeId = '';
   String leadSubType = 'Lead Sub Category', leadSubTypeId = '';
   String assignStaff = 'Assign Staff', assignStaffId = '';
   String callResult = 'New', callResultId = '1';
@@ -116,7 +116,7 @@ class _AddLeadsNewState extends State<AddLeadsNew> {
   String priority = 'Normal', priorityId = '2';
 
   final TextEditingController leadTypeCtrl =
-      TextEditingController(text: 'Lead Category');
+      TextEditingController(text: 'Stream');
   final TextEditingController leadSubTypeCtrl =
       TextEditingController(text: 'Lead Sub Category');
   final TextEditingController assignStaffCtrl =
@@ -778,14 +778,14 @@ class _AddLeadsNewState extends State<AddLeadsNew> {
             child: TextFormField(
               controller: leadTypeCtrl,
               decoration: _inputDecoration(
-                      'Lead Category', Icons.arrow_drop_down_circle_outlined)
+                      'Stream', Icons.arrow_drop_down_circle_outlined)
                   .copyWith(
                 suffixIcon: leadTypeId.isNotEmpty
                     ? IconButton(
                         icon: const Icon(Icons.clear, size: 20),
                         onPressed: () {
                           setState(() {
-                            leadType = 'Lead Category';
+                            leadType = 'Stream';
                             leadTypeId = '';
                             leadSubType = 'Lead Sub Category';
                             leadSubTypeId = '';
@@ -1522,7 +1522,7 @@ class _AddLeadsNewState extends State<AddLeadsNew> {
         var filtered = List.from(commonDetails!.data.leadCategory);
         return StatefulBuilder(builder: (ctx, setDialogState) {
           return AlertDialog(
-            title: const Text('Lead Category'),
+            title: const Text('Stream'),
             content: SizedBox(
               width: MediaQuery.of(context).size.width * 0.8,
               height: 400,

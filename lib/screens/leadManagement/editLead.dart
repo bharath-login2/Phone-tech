@@ -53,7 +53,7 @@ class _EditLeadState extends State<EditLead> {
   LeadSubTypeModel? leadSubTypeList;
   bool? result = true;
   bool? result1 = true;
-  String leadType = 'Lead Category';
+  String leadType = 'Stream';
   String leadTypeId = '';
   String leadSubType = 'Lead Sub Category';
   String leadSubTypeId = '';
@@ -303,7 +303,7 @@ class _EditLeadState extends State<EditLead> {
           // Add null-safe access for all fields
           branch = leadDetails!.data!.branchId?.toString();
           leadType =
-              leadDetails!.data!.leadCategory?.toString() ?? 'Lead Category';
+              leadDetails!.data!.leadCategory?.toString() ?? 'Stream';
           leadTypeId = leadDetails!.data!.leadCategoryId?.toString() ?? '';
           assignStaff =
               leadDetails!.data!.staffName?.toString() ?? 'Assign Staff';
@@ -494,7 +494,7 @@ class _EditLeadState extends State<EditLead> {
                                   builder: (context, setState) {
                                     return AlertDialog(
                                       scrollable: true,
-                                      title: const Text('Lead Category'),
+                                      title: const Text('Stream'),
                                       content: SizedBox(
                                         height:
                                             MediaQuery.of(context).size.height *
@@ -611,7 +611,7 @@ class _EditLeadState extends State<EditLead> {
                           maxLines: 1,
                           readOnly: true,
                           decoration: const InputDecoration(
-                            labelText: 'Lead Category',
+                            labelText: 'Stream',
                             fillColor: Colors.white,
                             filled: true,
                             prefixIcon: Icon(

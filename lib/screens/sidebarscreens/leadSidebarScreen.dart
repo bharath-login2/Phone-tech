@@ -340,7 +340,7 @@ class _SettingsMenuWidgetState extends State<SettingsMenuWidget> {
       if (viewLeadCategoryPermission1)
         _buildMenuItem(
           iconImage: "assets/icons/leadCategory.png",
-          title: 'Lead Category',
+          title: 'Stream',
           onTap: () {
             Navigator.pop(context);
             _handleMenuItemTap(context, 2);

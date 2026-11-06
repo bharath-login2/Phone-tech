@@ -33,7 +33,7 @@ class _AddLeadCategoryDialogState extends State<AddLeadCategoryDialog> {
               const Align(
                 alignment: Alignment.centerLeft,
                 child: Text(
-                  'Add Lead Category',
+                  'Add Stream',
                   style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold),
                 ),
               ),
@@ -41,7 +41,7 @@ class _AddLeadCategoryDialogState extends State<AddLeadCategoryDialog> {
               TextField(
                 controller: _leadController,
                 decoration: InputDecoration(
-                  labelText: "Lead Category",
+                  labelText: "Stream",
                   filled: true,
                   fillColor: Colors.grey[100],
                   border: _border(),

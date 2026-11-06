@@ -39,6 +39,13 @@ class Data {
   String? remarks;
   String? reason;
   String? reasonId;
+  String? school;
+  String? area;
+  String? gender;
+  String? contactNumber2;
+  String? contactNumber3;
+  String? clientName;
+  String? get client_name => clientName;
   List<AdditionalField>? additionalFields;
 
   Data(
@@ -58,6 +65,12 @@ class Data {
       this.remarks,
       this.reason,
       this.reasonId,
+      this.school,
+      this.area,
+      this.gender,
+      this.contactNumber2,
+      this.contactNumber3,
+      this.clientName,
       this.additionalFields});
 
   Data.fromJson(Map<String, dynamic> json) {
@@ -77,6 +90,12 @@ class Data {
     remarks = json['remarks'];
     reason = json['reason'];
     reasonId = json['reason_id'];
+    school = json['school_name']?.toString() ?? "";
+    area = json['area']?.toString() ?? "";
+    gender = json['gender']?.toString() ?? "";
+    contactNumber2 = json['contact_number2']?.toString() ?? "";
+    contactNumber3 = json['contact_number3']?.toString() ?? "";
+    clientName = (json['client_name'] ?? json['clientName'])?.toString() ?? "";
     if (json['additional_fields'] != null) {
       additionalFields = <AdditionalField>[];
       json['additional_fields'].forEach((v) {
@@ -103,6 +122,12 @@ class Data {
     data['remarks'] = remarks;
     data['reason'] = reason;
     data['reason_id'] = reasonId;
+    data['school'] = school;
+    data['area'] = area;
+    data['gender'] = gender;
+    data['contact_number2'] = contactNumber2;
+    data['contact_number3'] = contactNumber3;
+    data['client_name'] = clientName;
     if (additionalFields != null) {
       data['additional_fields'] =
           additionalFields!.map((v) => v.toJson()).toList();

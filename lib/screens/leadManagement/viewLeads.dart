@@ -3767,7 +3767,7 @@ class _ViewLeadsState extends State<ViewLeads>
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         const SizedBox(height: 13),
-        const Text('Lead Category'),
+        const Text('Stream'),
         const SizedBox(height: 10),
         InkWell(
           onTap: () {
@@ -3783,7 +3783,7 @@ class _ViewLeadsState extends State<ViewLeads>
             child: checkedCategoryItems.isEmpty
                 ? const Padding(
                     padding: EdgeInsets.only(left: 10, top: 15, bottom: 10),
-                    child: Text('Lead Category'))
+                    child: Text('Stream'))
                 : Padding(
                     padding: const EdgeInsets.only(right: 40),
                     child: SizedBox(
@@ -4036,7 +4036,7 @@ class _ViewLeadsState extends State<ViewLeads>
           builder: (context, dialogSetState) {
             return AlertDialog(
               scrollable: true,
-              title: const Text('Lead Category'),
+              title: const Text('Stream'),
               content: SizedBox(
                 width: MediaQuery.of(context).size.width * 0.8,
                 height: MediaQuery.of(context).size.height * 0.55,

@@ -136,7 +136,7 @@ class _LeadDetailsState extends State<LeadDetails> {
   bool isPausedAllVoices = false;
   var callDate = DateTime.now();
   String? nextFollowupDate = '';
-  String leadType = 'Lead Category';
+  String leadType = 'Stream';
   String leadTypeId = '';
   String path = '';
   String listPath = '';

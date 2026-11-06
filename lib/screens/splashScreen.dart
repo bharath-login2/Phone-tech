@@ -178,6 +178,10 @@ class _SplashScreenState extends State<SplashScreen> {
               object1.data!.editLeaveRequest.toString());
           Common.saveSharedPref("deleteLeaveRequestPermission",
               object1.data!.deleteLeaveRequest.toString());
+          if (object1.data!.viewVerificationList != null) {
+            Common.saveSharedPref("view_verification_list",
+                object1.data!.viewVerificationList.toString());
+          }
           if (object1.data!.ProjectDashboard == "true") {
             Navigator.pushAndRemoveUntil(
               context,

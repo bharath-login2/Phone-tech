@@ -739,7 +739,7 @@ class _ViewLeadCategoryState extends State<ViewLeadCategory>
           ),
           const SizedBox(height: 8),
           Text(
-            'Get started by creating your first lead category',
+            'Get started by creating your first Stream',
             style: TextStyle(
               fontSize: 14,
               color: Colors.grey.shade600,

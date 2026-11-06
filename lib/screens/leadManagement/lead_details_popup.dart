@@ -10,6 +10,7 @@ import 'package:image_picker/image_picker.dart';
 import 'package:audioplayers/audioplayers.dart';
 import 'package:font_awesome_flutter/font_awesome_flutter.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:file_picker/file_picker.dart';
 import 'package:get/get.dart';
 import 'package:intl/intl.dart';
@@ -203,7 +204,7 @@ class _LeadDetailsPopupState extends State<LeadDetailsPopup>
   String callResponseId = '';
   String callResponse = 'Call Response';
   String leadTypeId = '';
-  String leadType = 'Lead Category';
+  String leadType = 'Stream';
   String leadSubTypeId = '';
   String leadSubType = 'Lead Sub Category';
   String priorityId = '2';
@@ -231,6 +232,30 @@ class _LeadDetailsPopupState extends State<LeadDetailsPopup>
   TextEditingController renewalRemarks = TextEditingController();
   TextEditingController whatsappLead = TextEditingController();
   TextEditingController emailLead = TextEditingController();
+  TextEditingController clientNameController = TextEditingController();
+  TextEditingController schoolController = TextEditingController();
+  TextEditingController areaController = TextEditingController();
+  TextEditingController contactNo1Controller = TextEditingController();
+  TextEditingController contactNo2Controller = TextEditingController();
+  String selectedGender = '';
+
+  String _normalizeGender(String? g) {
+    if (g == null || g.trim().isEmpty) return '';
+    final lower = g.trim().toLowerCase();
+    if (lower == 'male' || lower == 'm' || lower == 'boy' || lower == 'boys') {
+      return 'Male';
+    }
+    if (lower == 'female' ||
+        lower == 'f' ||
+        lower == 'girl' ||
+        lower == 'girls') {
+      return 'Female';
+    }
+    if (lower == 'other') {
+      return 'Other';
+    }
+    return g.trim();
+  }
 
   TextEditingController productDescription = TextEditingController();
   TextEditingController productRate = TextEditingController();
@@ -444,7 +469,10 @@ class _LeadDetailsPopupState extends State<LeadDetailsPopup>
   @override
   void initState() {
     super.initState();
-    isExpand = widget.autoExpandFollowup;
+    leadDetails = widget.leadDetails;
+    final String? initialCallResultId =
+        (leadDetails?.data ?? widget.leadDetails.data)?.callResultId?.toString().trim();
+    isExpand = (initialCallResultId == "14") ? false : widget.autoExpandFollowup;
     _initializeData();
 
     _tabController = TabController(length: _getTabCount(), vsync: this);
@@ -537,13 +565,23 @@ class _LeadDetailsPopupState extends State<LeadDetailsPopup>
         address.text = data.address ?? '';
         cost.text = data.cost ?? '';
         leadTypeId = data.leadCategoryId ?? '';
-        leadType = data.leadCategory ?? 'Lead Category';
+        leadType = data.leadCategory ?? 'Stream';
         leadSubTypeId = data.leadSubCategoryId ?? '';
         leadSubType = data.leadSubCategory ?? 'Lead Sub Category';
         priorityId = data.priorityId ?? '2';
         priority = data.priority ?? 'Normal';
         whatsappLead.text = data.whatsaAppNumber ?? '';
         emailLead.text = data.emailId ?? '';
+
+        if (int.tryParse(callResultId.trim()) == 14 ||
+            int.tryParse(callResultId.trim()) == 15) {
+          clientNameController.text = data.clientName ?? '';
+          schoolController.text = data.schoolName ?? '';
+          areaController.text = data.area ?? '';
+          selectedGender = _normalizeGender(data.gender);
+          contactNo1Controller.text = data.contactNumber2 ?? '';
+          contactNo2Controller.text = data.contactNumber3 ?? '';
+        }
 
         // Initialize followup date
         calledDate1.text =
@@ -1426,6 +1464,11 @@ class _LeadDetailsPopupState extends State<LeadDetailsPopup>
 
   @override
   void dispose() {
+    clientNameController.dispose();
+    schoolController.dispose();
+    areaController.dispose();
+    contactNo1Controller.dispose();
+    contactNo2Controller.dispose();
     _tabController.dispose();
     super.dispose();
   }
@@ -2477,16 +2520,29 @@ class _LeadDetailsPopupState extends State<LeadDetailsPopup>
           leadDetails = response;
 
           final data = leadDetails!.data!;
+          if (data.callResultId?.toString().trim() == "14") {
+            isExpand = false;
+          }
           contactFName.text = data.clientName ?? '';
           contactMobile.text = data.contactNumber1 ?? '';
           address.text = data.address ?? '';
           cost.text = data.cost ?? '';
           leadTypeId = data.leadCategoryId ?? '';
-          leadType = data.leadCategory ?? 'Lead Category';
+          leadType = data.leadCategory ?? 'Stream';
           leadSubTypeId = data.leadSubCategoryId ?? '';
           leadSubType = data.leadSubCategory ?? 'Lead Sub Category';
           priorityId = data.priorityId ?? '2';
           priority = data.priority ?? 'Normal';
+
+          if (int.tryParse(callResultId.trim()) == 14 ||
+              int.tryParse(callResultId.trim()) == 15) {
+            clientNameController.text = data.clientName ?? '';
+            schoolController.text = data.schoolName ?? '';
+            areaController.text = data.area ?? '';
+            selectedGender = _normalizeGender(data.gender);
+            contactNo1Controller.text = data.contactNumber2 ?? '';
+            contactNo2Controller.text = data.contactNumber3 ?? '';
+          }
         });
 
         await Future.wait<dynamic>([
@@ -2621,8 +2677,35 @@ class _LeadDetailsPopupState extends State<LeadDetailsPopup>
         (callResultReasonId.isEmpty ||
             callResultReasonId == '0' ||
             callResultReasonId == 'null')) {
-      Common.toastMessaage('Select Tags', Colors.red);
+      Common.toastMessaage('Select Reason', Colors.red);
       return;
+    }
+
+    if (int.tryParse(callResultId.trim()) == 14) {
+      if (schoolController.text.trim().isEmpty) {
+        Common.toastMessaage('School is required', Colors.red);
+        return;
+      }
+      if (areaController.text.trim().isEmpty) {
+        Common.toastMessaage('Area is required', Colors.red);
+        return;
+      }
+      if (selectedGender.trim().isEmpty) {
+        Common.toastMessaage('Select Gender', Colors.red);
+        return;
+      }
+      if (contactNo1Controller.text.trim().isNotEmpty &&
+          contactNo1Controller.text.trim().length < 10) {
+        Common.toastMessaage(
+            'Contact No 1 must be at least 10 digits', Colors.red);
+        return;
+      }
+      if (contactNo2Controller.text.trim().isNotEmpty &&
+          contactNo2Controller.text.trim().length < 10) {
+        Common.toastMessaage(
+            'Contact No 2 must be at least 10 digits', Colors.red);
+        return;
+      }
     }
 
     if (createOrder == true && products.isEmpty) {
@@ -2740,7 +2823,31 @@ class _LeadDetailsPopupState extends State<LeadDetailsPopup>
           products: productIds,
           createCustomer: createCustomer,
           whatsappLead: whatsappLead.text,
-          emailLead: emailLead.text);
+          emailLead: emailLead.text,
+          clientName: (int.tryParse(callResultId.trim()) == 14 ||
+                  int.tryParse(callResultId.trim()) == 15)
+              ? clientNameController.text.trim()
+              : null,
+          school: (int.tryParse(callResultId.trim()) == 14 ||
+                  int.tryParse(callResultId.trim()) == 15)
+              ? schoolController.text.trim()
+              : null,
+          area: (int.tryParse(callResultId.trim()) == 14 ||
+                  int.tryParse(callResultId.trim()) == 15)
+              ? areaController.text.trim()
+              : null,
+          gender: (int.tryParse(callResultId.trim()) == 14 ||
+                  int.tryParse(callResultId.trim()) == 15)
+              ? selectedGender.trim()
+              : null,
+          contactNumber2: (int.tryParse(callResultId.trim()) == 14 ||
+                  int.tryParse(callResultId.trim()) == 15)
+              ? contactNo1Controller.text.trim()
+              : null,
+          contactNumber3: (int.tryParse(callResultId.trim()) == 14 ||
+                  int.tryParse(callResultId.trim()) == 15)
+              ? contactNo2Controller.text.trim()
+              : null);
       if (context.mounted) {
         Navigator.pop(context);
         // if (result.status == true) {
@@ -2768,6 +2875,12 @@ class _LeadDetailsPopupState extends State<LeadDetailsPopup>
           setState(() {
             remarks.clear();
             nextFollowupDate1.clear();
+            clientNameController.clear();
+            schoolController.clear();
+            areaController.clear();
+            contactNo1Controller.clear();
+            contactNo2Controller.clear();
+            selectedGender = '';
 
             callResponseId = '';
             callResultReasonId = '';
@@ -2894,6 +3007,12 @@ class _LeadDetailsPopupState extends State<LeadDetailsPopup>
                 ),
               ),
             )
+          else if ((leadDetails?.data ?? widget.leadDetails.data)
+                  ?.callResultId
+                  ?.toString()
+                  .trim() ==
+              "14")
+            const SizedBox.shrink()
           else ...[
             // Add New Followup Form - Restricted for closed leads (Status ID '4' or name 'Closed')
             if (leadDetails?.data?.callResultId != "4" &&
@@ -2958,6 +3077,12 @@ class _LeadDetailsPopupState extends State<LeadDetailsPopup>
 
   Widget _buildAddNewFollowupForm() {
     if (commonDetails == null) return const SizedBox();
+    final String? callResultIdVal =
+        (leadDetails?.data ?? widget.leadDetails.data)
+            ?.callResultId
+            ?.toString()
+            .trim();
+    if (callResultIdVal == "14") return const SizedBox.shrink();
     return Column(
       children: [
         Padding(
@@ -3124,45 +3249,123 @@ class _LeadDetailsPopupState extends State<LeadDetailsPopup>
                     },
                   ),
                   const SizedBox(height: 12),
-                  _buildDropdown(
-                    label: 'Lead Stages',
-                    isMandatory: true,
-                    value: callResultId.isEmpty ? null : callResultId,
-                    // value: null,
-                    items: commonDetails!.data.callResult.map((item) {
-                      return DropdownMenuItem(
-                        value: item.callResultId.toString(),
-                        child: Text(item.callResult),
+                  Builder(
+                    builder: (context) {
+                      final String underVerif = (leadDetails?.data?.underVerification ??
+                              widget.leadDetails.data?.underVerification ??
+                              '')
+                          .toString()
+                          .trim()
+                          .toUpperCase();
+
+                      final filteredCallResults =
+                          (commonDetails?.data.callResult ?? []).where((item) {
+                        final int? id =
+                            int.tryParse(item.callResultId.toString().trim());
+                        if (underVerif == 'Y') {
+                          return id == 14 || id == 9 || id == 16;
+                        } else {
+                          return id != 1 && id != 14 && id != 15;
+                        }
+                      }).toList();
+
+                      return _buildDropdown(
+                        label: 'Lead Status',
+                        isMandatory: true,
+                        value: callResultId.isEmpty ? null : callResultId,
+                        // value: null,
+                        items: filteredCallResults.map((item) {
+                          return DropdownMenuItem(
+                            value: item.callResultId.toString(),
+                            child: Text(item.callResult),
+                          );
+                        }).toList(),
+                        onChanged: (value) {
+                          setState(() {
+                            final String prevId = callResultId;
+                            callResultId = value!;
+                            callResult = filteredCallResults
+                                .firstWhere(
+                                    (element) =>
+                                        element.callResultId.toString() == value,
+                                    orElse: () => commonDetails!.data.callResult
+                                        .firstWhere((element) =>
+                                            element.callResultId.toString() ==
+                                            value))
+                                .callResult;
+                            final int? prevParsedId =
+                                int.tryParse(prevId.trim());
+                            final int? parsedCallResultId =
+                                int.tryParse(callResultId.trim());
+
+                            if (parsedCallResultId == 14 ||
+                                parsedCallResultId == 15) {
+                              final leadData = leadDetails?.data ??
+                                  widget.leadDetails.data;
+                              final bool fromOtherStage =
+                                  (prevParsedId != 14 && prevParsedId != 15);
+
+                              if (fromOtherStage ||
+                                  clientNameController.text.trim().isEmpty) {
+                                clientNameController.text =
+                                    leadData?.clientName ?? '';
+                              }
+                              if (fromOtherStage ||
+                                  schoolController.text.trim().isEmpty) {
+                                schoolController.text =
+                                    leadData?.schoolName ?? '';
+                              }
+                              if (fromOtherStage ||
+                                  areaController.text.trim().isEmpty) {
+                                areaController.text =
+                                    leadData?.area ?? '';
+                              }
+                              if (fromOtherStage ||
+                                  selectedGender.trim().isEmpty) {
+                                selectedGender =
+                                    _normalizeGender(leadData?.gender);
+                              }
+                              if (fromOtherStage ||
+                                  contactNo1Controller.text.trim().isEmpty) {
+                                contactNo1Controller.text =
+                                    leadData?.contactNumber2 ?? '';
+                              }
+                              if (fromOtherStage ||
+                                  contactNo2Controller.text.trim().isEmpty) {
+                                contactNo2Controller.text =
+                                    leadData?.contactNumber3 ?? '';
+                              }
+                            } else {
+                              clientNameController.clear();
+                              schoolController.clear();
+                              areaController.clear();
+                              contactNo1Controller.clear();
+                              contactNo2Controller.clear();
+                              selectedGender = '';
+                            }
+                            _fetchCallResultReason();
+                            _fetchLeadExtraSettings(callResultId).then((_) {
+                              if (leadSettings != null &&
+                                  !leadSettings!.isFollowupRequiredBool) {
+                                if (mounted) {
+                                  setState(() {
+                                    nextFollowupDate1.clear();
+                                    checked = false;
+                                  });
+                                }
+                              } else if (leadSettings == null &&
+                                  callResultId != '2') {
+                                if (mounted) {
+                                  setState(() {
+                                    nextFollowupDate1.clear();
+                                    checked = false;
+                                  });
+                                }
+                              }
+                            });
+                          });
+                        },
                       );
-                    }).toList(),
-                    onChanged: (value) {
-                      setState(() {
-                        callResultId = value!;
-                        callResult = commonDetails!.data.callResult
-                            .firstWhere((element) =>
-                                element.callResultId.toString() == value)
-                            .callResult;
-                        _fetchCallResultReason();
-                        _fetchLeadExtraSettings(callResultId).then((_) {
-                          if (leadSettings != null &&
-                              !leadSettings!.isFollowupRequiredBool) {
-                            if (mounted) {
-                              setState(() {
-                                nextFollowupDate1.clear();
-                                checked = false;
-                              });
-                            }
-                          } else if (leadSettings == null &&
-                              callResultId != '2') {
-                            if (mounted) {
-                              setState(() {
-                                nextFollowupDate1.clear();
-                                checked = false;
-                              });
-                            }
-                          }
-                        });
-                      });
                     },
                   ),
                   if (callResultReason != null &&
@@ -3185,6 +3388,78 @@ class _LeadDetailsPopupState extends State<LeadDetailsPopup>
                         });
                       },
                     ),
+                  if (int.tryParse(callResultId.trim()) == 14) ...[
+                    _buildFollowupTextField(
+                      label: 'Name',
+                      controller: clientNameController,
+                      isMandatory: false,
+                      hintText: 'Enter Client Name',
+                    ),
+                    _buildFollowupTextField(
+                      label: 'School',
+                      controller: schoolController,
+                      isMandatory: true,
+                      hintText: 'Enter School',
+                    ),
+                    _buildFollowupTextField(
+                      label: 'Area',
+                      controller: areaController,
+                      isMandatory: true,
+                      hintText: 'Enter Area',
+                    ),
+                    _buildDropdown(
+                      label: 'Gender',
+                      isMandatory: true,
+                      value: ['Male', 'Female', 'Other'].contains(selectedGender)
+                          ? selectedGender
+                          : (_normalizeGender(selectedGender).isNotEmpty &&
+                                  ['Male', 'Female', 'Other']
+                                      .contains(_normalizeGender(selectedGender)))
+                              ? _normalizeGender(selectedGender)
+                              : null,
+                      items: const [
+                        DropdownMenuItem(
+                          value: 'Male',
+                          child: Text('Male'),
+                        ),
+                        DropdownMenuItem(
+                          value: 'Female',
+                          child: Text('Female'),
+                        ),
+                        DropdownMenuItem(
+                          value: 'Other',
+                          child: Text('Other'),
+                        ),
+                      ],
+                      onChanged: (value) {
+                        setState(() {
+                          selectedGender = value ?? '';
+                        });
+                      },
+                    ),
+                    _buildFollowupTextField(
+                      label: 'Contact No 1',
+                      controller: contactNo1Controller,
+                      isMandatory: false,
+                      hintText: 'Enter Contact No 1',
+                      keyboardType: TextInputType.phone,
+                      inputFormatters: [
+                        FilteringTextInputFormatter.digitsOnly,
+                        LengthLimitingTextInputFormatter(15),
+                      ],
+                    ),
+                    _buildFollowupTextField(
+                      label: 'Contact No 2',
+                      controller: contactNo2Controller,
+                      isMandatory: false,
+                      hintText: 'Enter Contact No 2',
+                      keyboardType: TextInputType.phone,
+                      inputFormatters: [
+                        FilteringTextInputFormatter.digitsOnly,
+                        LengthLimitingTextInputFormatter(15),
+                      ],
+                    ),
+                  ],
                   if (leadSettings != null
                       ? leadSettings!.isFollowupRequiredBool
                       : callResultId == '2') // Assuming '2' is Pending/Followup
@@ -3417,189 +3692,189 @@ class _LeadDetailsPopupState extends State<LeadDetailsPopup>
                       ],
                     ),
 
-                  const Text(
-                    'Products',
-                    style: TextStyle(fontSize: 13, fontWeight: FontWeight.w500),
-                  ),
-                  const SizedBox(height: 8),
-                  Row(
-                    children: [
-                      Expanded(
-                        child: GestureDetector(
-                          onTap: () => _showProductPopup(),
-                          child: AbsorbPointer(
-                            child: TextFormField(
-                              key: ValueKey(_selectedProducts.length),
-                              initialValue: _selectedProducts.isEmpty
-                                  ? ''
-                                  : "${_selectedProducts.length} Product(s) Selected",
-                              decoration: InputDecoration(
-                                hintText: 'Select Products',
-                                prefixIcon:
-                                    const Icon(Icons.shopping_cart, size: 20),
-                                isDense: true,
-                                filled: true,
-                                fillColor: Colors.grey.shade50,
-                                border: OutlineInputBorder(
-                                  borderRadius: BorderRadius.circular(8),
-                                  borderSide:
-                                      BorderSide(color: Colors.grey.shade300),
-                                ),
-                                enabledBorder: OutlineInputBorder(
-                                  borderRadius: BorderRadius.circular(8),
-                                  borderSide:
-                                      BorderSide(color: Colors.grey.shade200),
-                                ),
-                              ),
-                            ),
-                          ),
-                        ),
-                      ),
-                      const SizedBox(width: 8),
-                      GestureDetector(
-                        onTap: () {
-                          Navigator.push(
-                              context,
-                              MaterialPageRoute(
-                                builder: (context) => const AddProducts(),
-                              )).then((_) {
-                            _fetchProductSection();
-                          });
-                        },
-                        child: Container(
-                          height: 42,
-                          width: 42,
-                          decoration: BoxDecoration(
-                            gradient: const LinearGradient(
-                                colors: [Color(0xFF2a86c9), Color(0xFF406dbe)]),
-                            borderRadius: BorderRadius.circular(10),
-                          ),
-                          child: const Icon(
-                            Icons.add,
-                            color: Colors.white,
-                          ),
-                        ),
-                      ),
-                    ],
-                  ),
-                  const SizedBox(height: 12),
-                  if (_selectedProducts.isNotEmpty)
-                    Column(
-                      children: _selectedProducts.map((p) {
-                        bool isExpanded = _expandedProductId == p.id;
-                        return Column(
-                          children: [
-                            InkWell(
-                              onTap: () {
-                                setState(() {
-                                  if (_expandedProductId == p.id) {
-                                    _expandedProductId = null;
-                                  } else {
-                                    _expandedProductId = p.id;
-                                    if (p.id != null) {
-                                      _fetchProductDescription(p.id!);
-                                    }
-                                  }
-                                });
-                              },
-                              child: Container(
-                                margin: const EdgeInsets.only(bottom: 8),
-                                padding: const EdgeInsets.symmetric(
-                                    horizontal: 12, vertical: 8),
-                                decoration: BoxDecoration(
-                                  color: Colors.blue.shade50,
-                                  borderRadius: BorderRadius.circular(8),
-                                  border:
-                                      Border.all(color: Colors.blue.shade100),
-                                ),
-                                child: Row(
-                                  children: [
-                                    Expanded(
-                                      child: Text(
-                                        "${p.productName} - Rs ${p.totalAmount}",
-                                        style: const TextStyle(
-                                            fontWeight: FontWeight.w500,
-                                            color: Color(0xFF2a86c9)),
-                                      ),
-                                    ),
-                                    GestureDetector(
-                                      onTap: () => _removeFollowupProduct(p),
-                                      child: const Icon(Icons.cancel,
-                                          size: 20, color: Colors.red),
-                                    ),
-                                  ],
-                                ),
-                              ),
-                            ),
-                            if (isExpanded &&
-                                (_descriptionLoading[p.id] == true ||
-                                    (_productDescriptions[p.id]?.isNotEmpty ??
-                                        false)))
-                              Container(
-                                width: double.infinity,
-                                padding: const EdgeInsets.all(12),
-                                margin: const EdgeInsets.only(
-                                    bottom: 12, left: 4, right: 4),
-                                decoration: BoxDecoration(
-                                  color: Colors.grey.shade50,
-                                  borderRadius: BorderRadius.circular(8),
-                                  border:
-                                      Border.all(color: Colors.grey.shade200),
-                                ),
-                                child: Column(
-                                  crossAxisAlignment: CrossAxisAlignment.start,
-                                  children: [
-                                    const Text(
-                                      "Product Description",
-                                      style: TextStyle(
-                                          fontSize: 13,
-                                          fontWeight: FontWeight.bold,
-                                          color: Colors.black87),
-                                    ),
-                                    const SizedBox(height: 4),
-                                    _descriptionLoading[p.id] == true
-                                        ? const Center(
-                                            child: Padding(
-                                              padding: EdgeInsets.all(8.0),
-                                              child: SizedBox(
-                                                height: 20,
-                                                width: 20,
-                                                child:
-                                                    CircularProgressIndicator(
-                                                  strokeWidth: 2,
-                                                ),
-                                              ),
-                                            ),
-                                          )
-                                        : Text(
-                                            _productDescriptions[p.id] ?? "",
-                                            style: const TextStyle(
-                                                fontSize: 12,
-                                                color: Colors.grey),
-                                          ),
-                                  ],
-                                ),
-                              ),
-                          ],
-                        );
-                      }).toList(),
-                    ),
-                  const SizedBox(height: 12),
+                  // const Text(
+                  //   'Products',
+                  //   style: TextStyle(fontSize: 13, fontWeight: FontWeight.w500),
+                  // ),
+                  // const SizedBox(height: 8),
+                  // Row(
+                  //   children: [
+                  //     Expanded(
+                  //       child: GestureDetector(
+                  //         onTap: () => _showProductPopup(),
+                  //         child: AbsorbPointer(
+                  //           child: TextFormField(
+                  //             key: ValueKey(_selectedProducts.length),
+                  //             initialValue: _selectedProducts.isEmpty
+                  //                 ? ''
+                  //                 : "${_selectedProducts.length} Product(s) Selected",
+                  //             decoration: InputDecoration(
+                  //               hintText: 'Select Products',
+                  //               prefixIcon:
+                  //                   const Icon(Icons.shopping_cart, size: 20),
+                  //               isDense: true,
+                  //               filled: true,
+                  //               fillColor: Colors.grey.shade50,
+                  //               border: OutlineInputBorder(
+                  //                 borderRadius: BorderRadius.circular(8),
+                  //                 borderSide:
+                  //                     BorderSide(color: Colors.grey.shade300),
+                  //               ),
+                  //               enabledBorder: OutlineInputBorder(
+                  //                 borderRadius: BorderRadius.circular(8),
+                  //                 borderSide:
+                  //                     BorderSide(color: Colors.grey.shade200),
+                  //               ),
+                  //             ),
+                  //           ),
+                  //         ),
+                  //       ),
+                  //     ),
+                  //     const SizedBox(width: 8),
+                  //     GestureDetector(
+                  //       onTap: () {
+                  //         Navigator.push(
+                  //             context,
+                  //             MaterialPageRoute(
+                  //               builder: (context) => const AddProducts(),
+                  //             )).then((_) {
+                  //           _fetchProductSection();
+                  //         });
+                  //       },
+                  //       child: Container(
+                  //         height: 42,
+                  //         width: 42,
+                  //         decoration: BoxDecoration(
+                  //           gradient: const LinearGradient(
+                  //               colors: [Color(0xFF2a86c9), Color(0xFF406dbe)]),
+                  //           borderRadius: BorderRadius.circular(10),
+                  //         ),
+                  //         child: const Icon(
+                  //           Icons.add,
+                  //           color: Colors.white,
+                  //         ),
+                  //       ),
+                  //     ),
+                  //   ],
+                  // ),
+                  // const SizedBox(height: 12),
+                  // if (_selectedProducts.isNotEmpty)
+                  //   Column(
+                  //     children: _selectedProducts.map((p) {
+                  //       bool isExpanded = _expandedProductId == p.id;
+                  //       return Column(
+                  //         children: [
+                  //           InkWell(
+                  //             onTap: () {
+                  //               setState(() {
+                  //                 if (_expandedProductId == p.id) {
+                  //                   _expandedProductId = null;
+                  //                 } else {
+                  //                   _expandedProductId = p.id;
+                  //                   if (p.id != null) {
+                  //                     _fetchProductDescription(p.id!);
+                  //                   }
+                  //                 }
+                  //               });
+                  //             },
+                  //             child: Container(
+                  //               margin: const EdgeInsets.only(bottom: 8),
+                  //               padding: const EdgeInsets.symmetric(
+                  //                   horizontal: 12, vertical: 8),
+                  //               decoration: BoxDecoration(
+                  //                 color: Colors.blue.shade50,
+                  //                 borderRadius: BorderRadius.circular(8),
+                  //                 border:
+                  //                     Border.all(color: Colors.blue.shade100),
+                  //               ),
+                  //               child: Row(
+                  //                 children: [
+                  //                   Expanded(
+                  //                     child: Text(
+                  //                       "${p.productName} - Rs ${p.totalAmount}",
+                  //                       style: const TextStyle(
+                  //                           fontWeight: FontWeight.w500,
+                  //                           color: Color(0xFF2a86c9)),
+                  //                     ),
+                  //                   ),
+                  //                   GestureDetector(
+                  //                     onTap: () => _removeFollowupProduct(p),
+                  //                     child: const Icon(Icons.cancel,
+                  //                         size: 20, color: Colors.red),
+                  //                   ),
+                  //                 ],
+                  //               ),
+                  //             ),
+                  //           ),
+                  //           if (isExpanded &&
+                  //               (_descriptionLoading[p.id] == true ||
+                  //                   (_productDescriptions[p.id]?.isNotEmpty ??
+                  //                       false)))
+                  //             Container(
+                  //               width: double.infinity,
+                  //               padding: const EdgeInsets.all(12),
+                  //               margin: const EdgeInsets.only(
+                  //                   bottom: 12, left: 4, right: 4),
+                  //               decoration: BoxDecoration(
+                  //                 color: Colors.grey.shade50,
+                  //                 borderRadius: BorderRadius.circular(8),
+                  //                 border:
+                  //                     Border.all(color: Colors.grey.shade200),
+                  //               ),
+                  //               child: Column(
+                  //                 crossAxisAlignment: CrossAxisAlignment.start,
+                  //                 children: [
+                  //                   const Text(
+                  //                     "Product Description",
+                  //                     style: TextStyle(
+                  //                         fontSize: 13,
+                  //                         fontWeight: FontWeight.bold,
+                  //                         color: Colors.black87),
+                  //                   ),
+                  //                   const SizedBox(height: 4),
+                  //                   _descriptionLoading[p.id] == true
+                  //                       ? const Center(
+                  //                           child: Padding(
+                  //                             padding: EdgeInsets.all(8.0),
+                  //                             child: SizedBox(
+                  //                               height: 20,
+                  //                               width: 20,
+                  //                               child:
+                  //                                   CircularProgressIndicator(
+                  //                                 strokeWidth: 2,
+                  //                               ),
+                  //                             ),
+                  //                           ),
+                  //                         )
+                  //                       : Text(
+                  //                           _productDescriptions[p.id] ?? "",
+                  //                           style: const TextStyle(
+                  //                               fontSize: 12,
+                  //                               color: Colors.grey),
+                  //                         ),
+                  //                 ],
+                  //               ),
+                  //             ),
+                  //         ],
+                  //       );
+                  //     }).toList(),
+                  //   ),
+                  // const SizedBox(height: 12),
 
-                  Row(
-                    children: [
-                      Expanded(
-                        child: TextField(
-                          controller: cost,
-                          keyboardType: TextInputType.number,
-                          decoration: const InputDecoration(
-                            labelText: 'Cost',
-                            border: OutlineInputBorder(),
-                            contentPadding: EdgeInsets.all(12),
-                            prefixIcon: Icon(Icons.currency_rupee, size: 18),
-                          ),
-                        ),
-                      ),
+                  // Row(
+                  //   children: [
+                      // Expanded(
+                      //   child: TextField(
+                      //     controller: cost,
+                      //     keyboardType: TextInputType.number,
+                      //     decoration: const InputDecoration(
+                      //       labelText: 'Cost',
+                      //       border: OutlineInputBorder(),
+                      //       contentPadding: EdgeInsets.all(12),
+                      //       prefixIcon: Icon(Icons.currency_rupee, size: 18),
+                      //     ),
+                      //   ),
+                      // ),
                       // const SizedBox(width: 12),
                       // Expanded(
                       //   child: TextField(
@@ -3612,11 +3887,11 @@ class _LeadDetailsPopupState extends State<LeadDetailsPopup>
                       //     ),
                       //   ),
                       // ),
-                    ],
-                  ),
+                  //   ],
+                  // ),
                   const SizedBox(height: 12),
                   _buildDropdown(
-                    label: 'Category',
+                    label: 'Stream',
                     value: leadTypeId.isEmpty ? null : leadTypeId,
                     items: commonDetails!.data.leadCategory.map((item) {
                       return DropdownMenuItem(
@@ -3636,25 +3911,25 @@ class _LeadDetailsPopupState extends State<LeadDetailsPopup>
                     },
                   ),
                   //  const SizedBox(height:12),
-                  _buildDropdown(
-                    label: 'Sub Category',
-                    value: leadSubTypeId.isEmpty ? null : leadSubTypeId,
-                    items: (leadSubTypeList?.data ?? []).map((item) {
-                      return DropdownMenuItem(
-                        value: item.leadSubCategoryId.toString(),
-                        child: Text(item.leadSubCategory ?? ''),
-                      );
-                    }).toList(),
-                    onChanged: (value) {
-                      setState(() {
-                        leadSubTypeId = value!;
-                        leadSubType = leadSubTypeList!.data!
-                            .firstWhere((element) =>
-                                element.leadSubCategoryId.toString() == value)
-                            .leadSubCategory!;
-                      });
-                    },
-                  ),
+                  // _buildDropdown(
+                  //   label: 'Sub Category',
+                  //   value: leadSubTypeId.isEmpty ? null : leadSubTypeId,
+                  //   items: (leadSubTypeList?.data ?? []).map((item) {
+                  //     return DropdownMenuItem(
+                  //       value: item.leadSubCategoryId.toString(),
+                  //       child: Text(item.leadSubCategory ?? ''),
+                  //     );
+                  //   }).toList(),
+                  //   onChanged: (value) {
+                  //     setState(() {
+                  //       leadSubTypeId = value!;
+                  //       leadSubType = leadSubTypeList!.data!
+                  //           .firstWhere((element) =>
+                  //               element.leadSubCategoryId.toString() == value)
+                  //           .leadSubCategory!;
+                  //     });
+                  //   },
+                  // ),
 
                   // _buildDropdown(
                   //   label: 'Call Result *',
@@ -3772,52 +4047,52 @@ class _LeadDetailsPopupState extends State<LeadDetailsPopup>
                       //     });
                       //   },
                       // ),
-                      const SizedBox(height: 12),
-                      Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          const Text(
-                            'WhatsApp Number',
-                            style: TextStyle(
-                                fontSize: 13, fontWeight: FontWeight.w500),
-                          ),
-                          const SizedBox(height: 4),
-                          TextField(
-                            controller: whatsappLead,
-                            keyboardType: TextInputType.phone,
-                            decoration: InputDecoration(
-                              hintText: 'WhatsApp Number',
-                              border: const OutlineInputBorder(),
-                              contentPadding: const EdgeInsets.all(12),
-                              prefixIcon: const Icon(FontAwesomeIcons.whatsapp,
-                                  size: 18, color: Colors.green),
-                            ),
-                          ),
-                        ],
-                      ),
-                      const SizedBox(height: 12),
-                      Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          const Text(
-                            'Email ID',
-                            style: TextStyle(
-                                fontSize: 13, fontWeight: FontWeight.w500),
-                          ),
-                          const SizedBox(height: 4),
-                          TextField(
-                            controller: emailLead,
-                            keyboardType: TextInputType.emailAddress,
-                            decoration: InputDecoration(
-                              hintText: 'Email ID',
-                              border: const OutlineInputBorder(),
-                              contentPadding: const EdgeInsets.all(12),
-                              prefixIcon: const Icon(Icons.email,
-                                  size: 18, color: Colors.blue),
-                            ),
-                          ),
-                        ],
-                      ),
+                      // const SizedBox(height: 12),
+                      // Column(
+                      //   crossAxisAlignment: CrossAxisAlignment.start,
+                      //   children: [
+                      //     const Text(
+                      //       'WhatsApp Number',
+                      //       style: TextStyle(
+                      //           fontSize: 13, fontWeight: FontWeight.w500),
+                      //     ),
+                      //     const SizedBox(height: 4),
+                      //     TextField(
+                      //       controller: whatsappLead,
+                      //       keyboardType: TextInputType.phone,
+                      //       decoration: InputDecoration(
+                      //         hintText: 'WhatsApp Number',
+                      //         border: const OutlineInputBorder(),
+                      //         contentPadding: const EdgeInsets.all(12),
+                      //         prefixIcon: const Icon(FontAwesomeIcons.whatsapp,
+                      //             size: 18, color: Colors.green),
+                      //       ),
+                      //     ),
+                      //   ],
+                      // ),
+                      // const SizedBox(height: 12),
+                      // Column(
+                      //   crossAxisAlignment: CrossAxisAlignment.start,
+                      //   children: [
+                      //     const Text(
+                      //       'Email ID',
+                      //       style: TextStyle(
+                      //           fontSize: 13, fontWeight: FontWeight.w500),
+                      //     ),
+                      //     const SizedBox(height: 4),
+                      //     TextField(
+                      //       controller: emailLead,
+                      //       keyboardType: TextInputType.emailAddress,
+                      //       decoration: InputDecoration(
+                      //         hintText: 'Email ID',
+                      //         border: const OutlineInputBorder(),
+                      //         contentPadding: const EdgeInsets.all(12),
+                      //         prefixIcon: const Icon(Icons.email,
+                      //             size: 18, color: Colors.blue),
+                      //       ),
+                      //     ),
+                      //   ],
+                      // ),
                       // const SizedBox(height: 12),
 
                       // const Text(
@@ -3930,17 +4205,17 @@ class _LeadDetailsPopupState extends State<LeadDetailsPopup>
                           //   ),
                           // ),
                           // const SizedBox(width: 12),
-                          Expanded(
-                            child: TextField(
-                              controller: address,
-                              decoration: const InputDecoration(
-                                labelText: 'Address',
-                                border: OutlineInputBorder(),
-                                contentPadding: EdgeInsets.all(12),
-                                prefixIcon: Icon(Icons.home, size: 18),
-                              ),
-                            ),
-                          ),
+                          // Expanded(
+                          //   child: TextField(
+                          //     controller: address,
+                          //     decoration: const InputDecoration(
+                          //       labelText: 'Address',
+                          //       border: OutlineInputBorder(),
+                          //       contentPadding: EdgeInsets.all(12),
+                          //       prefixIcon: Icon(Icons.home, size: 18),
+                          //     ),
+                          //   ),
+                          // ),
                         ],
                       ),
                       const SizedBox(height: 12),
@@ -3997,7 +4272,7 @@ class _LeadDetailsPopupState extends State<LeadDetailsPopup>
                           contentPadding: EdgeInsets.all(12),
                         ),
                       ),
-                      const SizedBox(height: 12),
+                      // const SizedBox(height: 12),
 
                       if (commonDetails?.data.additionalFields != null &&
                           commonDetails!.data.additionalFields.isNotEmpty) ...[
@@ -5208,6 +5483,59 @@ class _LeadDetailsPopupState extends State<LeadDetailsPopup>
     );
   }
 
+  Widget _buildFollowupTextField({
+    required String label,
+    required TextEditingController controller,
+    bool isMandatory = false,
+    String? hintText,
+    TextInputType? keyboardType,
+    List<TextInputFormatter>? inputFormatters,
+  }) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        isMandatory
+            ? RichText(
+                text: TextSpan(
+                  text: label,
+                  style: const TextStyle(
+                      fontSize: 13,
+                      fontWeight: FontWeight.w500,
+                      color: Colors.black),
+                  children: const [
+                    TextSpan(text: ' *', style: TextStyle(color: Colors.red))
+                  ],
+                ),
+              )
+            : Text(
+                label,
+                style:
+                    const TextStyle(fontSize: 13, fontWeight: FontWeight.w500),
+              ),
+        const SizedBox(height: 4),
+        TextField(
+          controller: controller,
+          keyboardType: keyboardType,
+          inputFormatters: inputFormatters,
+          decoration: InputDecoration(
+            hintText: hintText ?? 'Enter $label',
+            border: OutlineInputBorder(
+              borderRadius: BorderRadius.circular(8),
+              borderSide: BorderSide(color: Colors.grey.shade400),
+            ),
+            enabledBorder: OutlineInputBorder(
+              borderRadius: BorderRadius.circular(8),
+              borderSide: BorderSide(color: Colors.grey.shade400),
+            ),
+            contentPadding:
+                const EdgeInsets.symmetric(horizontal: 12, vertical: 12),
+          ),
+        ),
+        const SizedBox(height: 12),
+      ],
+    );
+  }
+
   Widget _buildFollowupItem(
       af.FollowUpDatum followup, int followupNumber, bool isLatest) {
     return Column(
@@ -5583,7 +5911,7 @@ class _LeadDetailsPopupState extends State<LeadDetailsPopup>
                       children: [
                         followup.reason.isNotEmpty
                             ? Text(
-                                'Tags: ${followup.reason.isNotEmpty ? followup.reason : ""}',
+                                'Reason: ${followup.reason.isNotEmpty ? followup.reason : ""}',
                                 style: TextStyle(
                                   fontSize: 12,
                                   color: isLatest
@@ -7517,8 +7845,8 @@ class _LeadDetailsPopupState extends State<LeadDetailsPopup>
             _buildDetailRow('Lead Stage', data.callResult ?? '-'),
             _buildDetailRow('Product', data.products ?? '-'),
             _buildDetailRow('Cost', '₹ ${data.cost}' ?? '-'),
-            _buildDetailRow('Category', data.leadCategory ?? '-'),
-            _buildDetailRow('Sub Category', data.leadSubCategory ?? '-'),
+            _buildDetailRow('Stream', data.leadCategory ?? '-'),
+            // _buildDetailRow('Sub Category', data.leadSubCategory ?? '-'),
             _buildDetailRow('Remark', data.remarks ?? '-'),
             //  _buildDetailRow('Assigned to', data.staffName ?? '-'),
 

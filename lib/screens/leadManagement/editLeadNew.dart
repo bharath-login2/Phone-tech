@@ -58,7 +58,7 @@ class _EditLeadNewState extends State<EditLeadNew> {
   LeadSubTypeModel? leadSubTypeList;
   LeadDeatailsModel? leadDetails;
   final ScrollController _scrollController = ScrollController();
-  String leadType = 'Lead Category', leadTypeId = '';
+  String leadType = 'Stream', leadTypeId = '';
   String leadSubType = 'Sub Category', leadSubTypeId = '';
   String assignStaff = 'Assign Staff', assignStaffId = '';
   String leadSource = 'Lead Source', leadSourceId = '';
@@ -71,7 +71,7 @@ class _EditLeadNewState extends State<EditLeadNew> {
   final TextEditingController callResponseCtrl = TextEditingController();
 
   final TextEditingController leadTypeCtrl =
-      TextEditingController(text: 'Lead Category');
+      TextEditingController(text: 'Stream');
   final TextEditingController leadSubTypeCtrl =
       TextEditingController(text: 'Sub Category');
   final TextEditingController assignStaffCtrl =
@@ -226,7 +226,7 @@ class _EditLeadNewState extends State<EditLeadNew> {
       pinCodeCtrl.text = data.pinCode ?? "";
       remarkCtrl.text = data.remarks ?? "";
       branch = data.branchId?.toString();
-      leadType = data.leadCategory ?? 'Lead Category';
+      leadType = data.leadCategory ?? 'Stream';
       leadTypeCtrl.text = leadType;
       leadTypeId = data.leadCategoryId?.toString() ?? '';
       leadSubType = data.leadSubCategory ?? 'Sub Category';
@@ -871,14 +871,14 @@ class _EditLeadNewState extends State<EditLeadNew> {
                 child: TextFormField(
                     controller: leadTypeCtrl,
                     decoration:
-                        _inputDecoration('Lead Category', Icons.category)
+                        _inputDecoration('Stream', Icons.category)
                             .copyWith(
                       suffixIcon: leadTypeId.isNotEmpty
                           ? IconButton(
                               icon: const Icon(Icons.clear, size: 20),
                               onPressed: () {
                                 setState(() {
-                                  leadType = 'Lead Category';
+                                  leadType = 'Stream';
                                   leadTypeCtrl.text = leadType;
                                   leadTypeId = '';
                                   leadSubType = 'Sub Category';
@@ -1268,7 +1268,7 @@ class _EditLeadNewState extends State<EditLeadNew> {
           var list = List.from(commonDetails!.data.leadCategory);
           return StatefulBuilder(
               builder: (c, setS) => AlertDialog(
-                    title: const Text('Lead Category'),
+                    title: const Text('Stream'),
                     content: SizedBox(
                         width: 300,
                         height: 400,

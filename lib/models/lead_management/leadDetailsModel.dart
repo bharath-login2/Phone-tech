@@ -61,6 +61,17 @@ class Data {
   String? district;
   String? whatsappNumberCountryCode;
   List<CallHandledUsers>? callHandledUsers;
+  String? underVerification;
+  String? schoolName;
+  String? area;
+  String? gender;
+  String? contactNumber2;
+  String? contactNumber3;
+
+  String? get school_name => schoolName;
+  String? get client_name => clientName;
+  String? get contact_number2 => contactNumber2;
+  String? get contact_number3 => contactNumber3;
 
   Data({
     this.callMasterId,
@@ -110,6 +121,12 @@ class Data {
     this.district,
     this.whatsappNumberCountryCode,
     this.callHandledUsers,
+    this.underVerification,
+    this.schoolName,
+    this.area,
+    this.gender,
+    this.contactNumber2,
+    this.contactNumber3,
   });
 
   Data.fromJson(Map<String, dynamic> json) {
@@ -179,6 +196,12 @@ class Data {
     state = json['state'] ?? "";
     district = json['district'] ?? "";
     whatsappNumberCountryCode = json['whatsapp_country_code'] ?? "";
+    underVerification = json['under_verification']?.toString() ?? "";
+    schoolName = json['school_name'] ?? "";
+    area = json['area'] ?? "";
+    gender = json['gender'] ?? "";
+    contactNumber2 = json['contact_number2']?.toString() ?? "";
+    contactNumber3 = json['contact_number3']?.toString() ?? "";
   }
 }
 

@@ -63,6 +63,8 @@ class Leads {
   final int closedLeads;
   final int calledCount;
   final int transferLeads;
+  final int callNotGetting;
+  final int planPresented;
 
   Leads({
     required this.newLeads,
@@ -71,18 +73,29 @@ class Leads {
     required this.closedLeads,
     required this.calledCount,
     required this.transferLeads,
+    required this.callNotGetting,
+    required this.planPresented,
   });
 
-  factory Leads.fromJson(Map<String, dynamic> json) {
-    return Leads(
-      newLeads: json['newLeads'] ?? 0,
-      missedLeads: json['missedLeads'] ?? 0,
-      followupLeads: json['followupLeads'] ?? 0,
-      closedLeads: json['closedLeads'] ?? 0,
-      calledCount: json['calledCount'] ?? 0,
-      transferLeads: json['transferLeads'] ?? 0,
-    );
-  }
+    static int _parseInt(dynamic value) {
+      if (value == null) return 0;
+      if (value is int) return value;
+      if (value is String) return int.tryParse(value) ?? 0;
+      return 0;
+    }
+
+    factory Leads.fromJson(Map<String, dynamic> json) {
+      return Leads(
+        newLeads: _parseInt(json['newLeads']),
+        missedLeads: _parseInt(json['missedLeads']),
+        followupLeads: _parseInt(json['followupLeads']),
+        closedLeads: _parseInt(json['closedLeads']),
+        calledCount: _parseInt(json['calledCount']),
+        transferLeads: _parseInt(json['transferLeads']),
+        callNotGetting: _parseInt(json['callNotGetting'] ?? json['call_not_getting'] ?? json['cng'] ?? json['CNG']),
+        planPresented: _parseInt(json['planPresented'] ?? json['plan_presented']),
+      );
+    }
 
   Map<String, dynamic> toJson() {
     return {
@@ -92,11 +105,13 @@ class Leads {
       'closedLeads': closedLeads,
       'calledCount': calledCount,
       'transferLeads': transferLeads,
+      'callNotGetting': callNotGetting,
+      'planPresented': planPresented,
     };
   }
 
   @override
   String toString() {
-    return 'Leads(newLeads: $newLeads, missedLeads: $missedLeads, followupLeads: $followupLeads, closedLeads: $closedLeads, calledCount: $calledCount, transferLeads: $transferLeads)';
+    return 'Leads(newLeads: $newLeads, missedLeads: $missedLeads, followupLeads: $followupLeads, closedLeads: $closedLeads, calledCount: $calledCount, transferLeads: $transferLeads),callNotGetting: $callNotGetting),planPresented: $planPresented),';
   }
 }

@@ -1156,7 +1156,7 @@ class _AddFollowupState extends State<AddFollowup> {
                                             return AlertDialog(
                                               scrollable: true,
                                               title:
-                                                  const Text('Lead Category'),
+                                                  const Text('Stream'),
                                               content: SizedBox(
                                                 width: MediaQuery.of(context)
                                                         .size
@@ -1279,7 +1279,7 @@ class _AddFollowupState extends State<AddFollowup> {
                                   decoration: InputDecoration(
                                     contentPadding: const EdgeInsets.only(
                                         left: 10, top: 2, bottom: 2),
-                                    labelText: 'Lead Category',
+                                    labelText: 'Stream',
                                     fillColor: Colors.white,
                                     filled: true,
                                     prefixIcon: const Icon(Icons.category,
@@ -1323,7 +1323,7 @@ class _AddFollowupState extends State<AddFollowup> {
                                                           .showSnackBar(
                                                         const SnackBar(
                                                             content: Text(
-                                                                "Lead category added successfully")),
+                                                                "Stream added successfully")),
                                                       );
                                                     } else {
                                                       ScaffoldMessenger.of(
@@ -1331,7 +1331,7 @@ class _AddFollowupState extends State<AddFollowup> {
                                                           .showSnackBar(
                                                         const SnackBar(
                                                             content: Text(
-                                                                "Failed to add lead category")),
+                                                                "Failed to add Stream")),
                                                       );
                                                     }
                                                   },

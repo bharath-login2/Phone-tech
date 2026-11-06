@@ -151,7 +151,7 @@ class _MinimalLeadDetailsState extends State<MinimalLeadDetails> {
   String callResultId = '1';
   var callDate = DateTime.now();
   String? nextFollowupDate = '';
-  String leadType = 'Lead Category';
+  String leadType = 'Stream';
   String leadTypeId = '';
   String path = '';
   String listPath = '';

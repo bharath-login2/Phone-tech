@@ -77,7 +77,11 @@ class Data {
         leadCategory: List<LeadCategory>.from(json["lead_category"].map((x) => LeadCategory.fromJson(x))),
         callResult: List<CallResult>.from(json["call_result"].map((x) => CallResult.fromJson(x))),
         callResultNew: List<CallResultNew>.from(json["call_result_new"].map((x) => CallResultNew.fromJson(x))),
-        branch: List<dynamic>.from(json["branch"].map((x) => x)),
+        branch: (json["branch"] as List? ?? [])
+          .map((x) => Branch.fromJson(
+                Map<String, dynamic>.from(x as Map),
+              ))
+          .toList(),
         staff: List<Staff>.from(json["staff"].map((x) => Staff.fromJson(x))),
         colloctedStaff: List<ColloctedStaff>.from(json["collocted_staff"].map((x) => ColloctedStaff.fromJson(x))),
         transferStaffs: List<TransferStaff>.from(json["transfer_staffs"].map((x) => TransferStaff.fromJson(x))),

@@ -4019,7 +4019,7 @@ class _MinimalDashboardState extends State<MinimalDashboard> {
                                                             width: 10,
                                                           ),
                                                           const Text(
-                                                              'Lead Category'),
+                                                              'Stream'),
                                                         ],
                                                       )),
                                                   PopupMenuItem<int>(

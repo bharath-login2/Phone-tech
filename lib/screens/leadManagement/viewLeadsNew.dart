@@ -74,6 +74,7 @@ class ViewLeadsNew extends StatefulWidget {
   final String? isAllLeads;
   final String? notificationLeadId;
   final String? isFollowup;
+  final String? callResultId;
 
   const ViewLeadsNew(
     this.token,
@@ -115,6 +116,7 @@ class ViewLeadsNew extends StatefulWidget {
     this.isAllLeads,
     this.notificationLeadId,
     this.isFollowup,
+    this.callResultId,
   });
 
   @override
@@ -317,7 +319,9 @@ class _ViewLeadsNewState extends State<ViewLeadsNew>
     if (widget.page != null) page = widget.page!;
     if (widget.pageSize != null) pageSize = widget.pageSize!;
 
-    status = widget.status == "0" ? null : widget.status;
+    status = (widget.callResultId != null && widget.callResultId!.isNotEmpty)
+        ? widget.callResultId
+        : (widget.status == "0" ? null : widget.status);
     staff = widget.staff;
     _handlePageSpecificLogic();
     _isDataLoaded = false;
@@ -561,7 +565,10 @@ class _ViewLeadsNewState extends State<ViewLeadsNew>
       dynamic status1, String sort, int currentPage, bool isFirst) {
     Map<String, dynamic> body = {
       "token": widget.token,
-      "callResultId": status1 ?? "",
+      "callResultId": (widget.callResultId != null &&
+              widget.callResultId!.isNotEmpty)
+          ? widget.callResultId!
+          : (status1 ?? ""),
       "leadCategoryId": checkedCategoryItems,
       "leadSubcategoryId": checkedSubCategoryItems,
       "callResponseId": checkedResponseItems,
@@ -593,12 +600,17 @@ class _ViewLeadsNewState extends State<ViewLeadsNew>
       "search": searchText,
     };
 
+    if (widget.callStatus != null && widget.callStatus!.isNotEmpty) {
+      body["callStatus"] = widget.callStatus;
+    }
+
     bool shouldSendDates = isFilterApplied ||
         isDateFiltered ||
         (widget.fromDate != null && widget.fromDate != "") ||
         (widget.toDate != null && widget.toDate != "") ||
         widget.leadType == "-1" ||
-        (status1 != null && (status1 == "4" || status1 == "0")) ||
+        (status1 != null && (status1 == "4" || status1 == "0" || status1 == "9")) ||
+        (widget.callResultId != null && widget.callResultId!.isNotEmpty) ||
         (widget.callResId != null);
     body["filterStatus"] = shouldSendDates ? 1 : 0;
     body["fromDate"] = shouldSendDates && fromdate != null

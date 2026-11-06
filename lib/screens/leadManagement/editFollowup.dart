@@ -1,5 +1,6 @@
 import 'package:connectivity_plus/connectivity_plus.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:intl/intl.dart';
 import 'package:lottie/lottie.dart';
 import 'package:font_awesome_flutter/font_awesome_flutter.dart';
@@ -63,7 +64,7 @@ class _EditFollowupState extends State<EditFollowup> {
   String callResultId = '1';
   String callResponse = 'Call Status';
   String callResponseId = '';
-  String leadType = 'Lead Category';
+  String leadType = 'Stream';
   String leadTypeId = '';
   String leadSubType = 'Lead Sub Category';
   String leadSubTypeId = '';
@@ -81,6 +82,13 @@ class _EditFollowupState extends State<EditFollowup> {
   final TextEditingController callReasonVal = TextEditingController();
   final TextEditingController whatsappLead = TextEditingController();
   final TextEditingController emailLead = TextEditingController();
+  final TextEditingController clientNameController = TextEditingController();
+  final TextEditingController schoolController = TextEditingController();
+  final TextEditingController areaController = TextEditingController();
+  final TextEditingController genderVal = TextEditingController();
+  final TextEditingController contactNo1Controller = TextEditingController();
+  final TextEditingController contactNo2Controller = TextEditingController();
+  String selectedGender = '';
   LeadSettings? leadSettings;
   bool checked = false;
   final TextEditingController timeBefore = TextEditingController(text: '10');
@@ -164,6 +172,12 @@ class _EditFollowupState extends State<EditFollowup> {
     callReasonVal.dispose();
     whatsappLead.dispose();
     emailLead.dispose();
+    clientNameController.dispose();
+    schoolController.dispose();
+    areaController.dispose();
+    genderVal.dispose();
+    contactNo1Controller.dispose();
+    contactNo2Controller.dispose();
     timeBefore.dispose();
     for (var ctrl in _additionalCtrls) {
       ctrl.dispose();
@@ -314,6 +328,107 @@ class _EditFollowupState extends State<EditFollowup> {
           }
         }
       }
+
+      clientNameController.text = followupDetails?.data?.clientName ?? "";
+      schoolController.text = followupDetails?.data?.school ?? "";
+      areaController.text = followupDetails?.data?.area ?? "";
+      selectedGender = followupDetails?.data?.gender ?? "";
+      genderVal.text = selectedGender;
+      contactNo1Controller.text = followupDetails?.data?.contactNumber2 ?? "";
+      contactNo2Controller.text = followupDetails?.data?.contactNumber3 ?? "";
+
+      if (clientNameController.text.isEmpty &&
+          leadDetails?.data?.clientName != null) {
+        clientNameController.text = leadDetails!.data!.clientName ?? "";
+      }
+      if (schoolController.text.isEmpty &&
+          leadDetails?.data?.schoolName != null) {
+        schoolController.text = leadDetails!.data!.schoolName ?? "";
+      }
+      if (areaController.text.isEmpty && leadDetails?.data?.area != null) {
+        areaController.text = leadDetails!.data!.area ?? "";
+      }
+      if (selectedGender.isEmpty && leadDetails?.data?.gender != null) {
+        selectedGender = leadDetails!.data!.gender ?? "";
+        genderVal.text = selectedGender;
+      }
+      if (contactNo1Controller.text.isEmpty &&
+          leadDetails?.data?.contactNumber2 != null) {
+        contactNo1Controller.text = leadDetails!.data!.contactNumber2 ?? "";
+      }
+      if (contactNo2Controller.text.isEmpty &&
+          leadDetails?.data?.contactNumber3 != null) {
+        contactNo2Controller.text = leadDetails!.data!.contactNumber3 ?? "";
+      }
+
+      if (clientNameController.text.isEmpty &&
+          followupDetails?.data?.additionalFields != null) {
+        final match = followupDetails!.data!.additionalFields!
+            .where((f) =>
+                (f.name ?? "").toLowerCase() == "client_name" ||
+                (f.name ?? "").toLowerCase() == "client name")
+            .toList();
+        if (match.isNotEmpty) {
+          clientNameController.text = match.first.value ?? "";
+        }
+      }
+      if (schoolController.text.isEmpty &&
+          followupDetails?.data?.additionalFields != null) {
+        final match = followupDetails!.data!.additionalFields!
+            .where((f) => (f.name ?? "").toLowerCase() == "school")
+            .toList();
+        if (match.isNotEmpty) {
+          schoolController.text = match.first.value ?? "";
+        }
+      }
+      if (areaController.text.isEmpty &&
+          followupDetails?.data?.additionalFields != null) {
+        final match = followupDetails!.data!.additionalFields!
+            .where((f) => (f.name ?? "").toLowerCase() == "area")
+            .toList();
+        if (match.isNotEmpty) {
+          areaController.text = match.first.value ?? "";
+        }
+      }
+      if (selectedGender.isEmpty &&
+          followupDetails?.data?.additionalFields != null) {
+        final match = followupDetails!.data!.additionalFields!
+            .where((f) => (f.name ?? "").toLowerCase() == "gender")
+            .toList();
+        if (match.isNotEmpty) {
+          selectedGender = match.first.value ?? "";
+          genderVal.text = selectedGender;
+        }
+      }
+      if (contactNo1Controller.text.isEmpty &&
+          followupDetails?.data?.additionalFields != null) {
+        final match = followupDetails!.data!.additionalFields!
+            .where((f) =>
+                (f.name ?? "").toLowerCase() == "contact_number2" ||
+                (f.name ?? "").toLowerCase() == "contact no 1" ||
+                (f.name ?? "").toLowerCase() == "contact no. 1" ||
+                (f.name ?? "").toLowerCase() == "contact number 1" ||
+                (f.name ?? "").toLowerCase() == "contact 1")
+            .toList();
+        if (match.isNotEmpty) {
+          contactNo1Controller.text = match.first.value ?? "";
+        }
+      }
+      if (contactNo2Controller.text.isEmpty &&
+          followupDetails?.data?.additionalFields != null) {
+        final match = followupDetails!.data!.additionalFields!
+            .where((f) =>
+                (f.name ?? "").toLowerCase() == "contact_number3" ||
+                (f.name ?? "").toLowerCase() == "contact no 2" ||
+                (f.name ?? "").toLowerCase() == "contact no. 2" ||
+                (f.name ?? "").toLowerCase() == "contact number 2" ||
+                (f.name ?? "").toLowerCase() == "contact 2")
+            .toList();
+        if (match.isNotEmpty) {
+          contactNo2Controller.text = match.first.value ?? "";
+        }
+      }
+
       _initializeAdditionalFields();
     });
   }
@@ -359,6 +474,33 @@ class _EditFollowupState extends State<EditFollowup> {
       return;
     }
 
+    if (int.tryParse(callResultId.trim()) == 14) {
+      if (schoolController.text.trim().isEmpty) {
+        Common.toastMessaage('School is required', Colors.red);
+        return;
+      }
+      if (areaController.text.trim().isEmpty) {
+        Common.toastMessaage('Area is required', Colors.red);
+        return;
+      }
+      if (selectedGender.trim().isEmpty) {
+        Common.toastMessaage('Select Gender', Colors.red);
+        return;
+      }
+      if (contactNo1Controller.text.trim().isNotEmpty &&
+          contactNo1Controller.text.trim().length < 10) {
+        Common.toastMessaage(
+            'Contact No 1 must be at least 10 digits', Colors.red);
+        return;
+      }
+      if (contactNo2Controller.text.trim().isNotEmpty &&
+          contactNo2Controller.text.trim().length < 10) {
+        Common.toastMessaage(
+            'Contact No 2 must be at least 10 digits', Colors.red);
+        return;
+      }
+    }
+
     if (context.mounted) {
       Common.showProgressDialog(context, "Loading..");
     }
@@ -392,7 +534,25 @@ class _EditFollowupState extends State<EditFollowup> {
         _additionalValues,
         whatsappLead: whatsappLead.text,
         emailLead: emailLead.text,
-        products: _selectedProducts.map((p) => p.id).join(','));
+        products: _selectedProducts.map((p) => p.id).join(','),
+        clientName: int.tryParse(callResultId.trim()) == 14
+            ? clientNameController.text.trim()
+            : null,
+        school: int.tryParse(callResultId.trim()) == 14
+            ? schoolController.text.trim()
+            : null,
+        area: int.tryParse(callResultId.trim()) == 14
+            ? areaController.text.trim()
+            : null,
+        gender: int.tryParse(callResultId.trim()) == 14
+            ? selectedGender.trim()
+            : null,
+        contactNumber2: int.tryParse(callResultId.trim()) == 14
+            ? contactNo1Controller.text.trim()
+            : null,
+        contactNumber3: int.tryParse(callResultId.trim()) == 14
+            ? contactNo2Controller.text.trim()
+            : null);
 
     if (context.mounted) Navigator.pop(context);
 
@@ -547,6 +707,20 @@ class _EditFollowupState extends State<EditFollowup> {
                 const SizedBox(height: 12),
                 if (callResultReason?.data?.isNotEmpty ?? false)
                   _buildCallReasonField(),
+                if (int.tryParse(callResultId.trim()) == 14) ...[
+                  const SizedBox(height: 12),
+                  _buildClientNameField(),
+                  const SizedBox(height: 12),
+                  _buildSchoolField(),
+                  const SizedBox(height: 12),
+                  _buildAreaField(),
+                  const SizedBox(height: 12),
+                  _buildGenderField(),
+                  const SizedBox(height: 12),
+                  _buildContactNo1Field(),
+                  const SizedBox(height: 12),
+                  _buildContactNo2Field(),
+                ],
                 const SizedBox(height: 12),
                 if (leadSettings != null
                     ? leadSettings!.isFollowupRequiredBool
@@ -559,15 +733,15 @@ class _EditFollowupState extends State<EditFollowup> {
               title: 'Product Details',
               icon: Icons.inventory_2_outlined,
               children: [
-                const SizedBox(height: 12),
-                _buildProductSelection(),
-                const SizedBox(height: 12),
-                _buildCostField(),
+                // const SizedBox(height: 12),
+                // _buildProductSelection(),
+                // const SizedBox(height: 12),
+                // _buildCostField(),
                 const SizedBox(height: 12),
                 _buildLeadCategoryField(),
                 const SizedBox(height: 12),
-                if (leadSubTypeList?.data?.isNotEmpty ?? false)
-                  _buildLeadSubCategoryField(),
+                // if (leadSubTypeList?.data?.isNotEmpty ?? false)
+                //   _buildLeadSubCategoryField(),
               ],
             ),
             const SizedBox(height: 12),
@@ -575,8 +749,8 @@ class _EditFollowupState extends State<EditFollowup> {
               title: 'Contact Info',
               icon: Icons.contact_phone_outlined,
               children: [
-                const SizedBox(height: 12),
-                _buildContactRow(),
+                // const SizedBox(height: 12),
+                // _buildContactRow(),
                 const SizedBox(height: 12),
                 _buildRemarksField(),
               ],
@@ -885,42 +1059,209 @@ Widget _buildProductSelection() {
   }
 
   Widget _buildCallResultField() {
-    return GestureDetector(
-      onTap: () => _showSelectionDialog(
-        title: 'Lead Stages',
-        items: commonDetails!.data.callResult
-            .map((cr) => cr.callResult.toString())
-            .toList(),
-        onSelected: (index) {
-          String newCallResultId =
-              commonDetails!.data.callResult[index].callResultId.toString();
-          setState(() {
-            if (newCallResultId != callResultId) {
-              nextFollowupDate1.clear();
-            }
-            callResultVal.text =
-                commonDetails!.data.callResult[index].callResult.toString();
-            callResult =
-                commonDetails!.data.callResult[index].callResult.toString();
-            callResultId = newCallResultId;
-            // Clear stage-specific tags when stage changes
-            callResultReasonId = '';
-            callResultReasonName = 'Tag';
-            callReasonVal.clear();
+    final String underVerif =
+        (leadDetails?.data?.underVerification ?? "").trim().toUpperCase();
+    final filteredCallResults =
+        (commonDetails?.data.callResult ?? []).where((item) {
+      final int? id = int.tryParse(item.callResultId.toString().trim());
+      if (underVerif == 'Y') {
+        return id == 14 || id == 9 || id == 16;
+      } else {
+        return id != 1 && id != 14 && id != 15;
+      }
+    }).toList();
 
-            callResultReasonList();
-            _fetchLeadExtraSettings(callResultId);
-          });
-        },
-      ),
+    return GestureDetector(
+      onTap: () {
+        if (filteredCallResults.isEmpty) return;
+        _showSelectionDialog(
+          title: 'Lead Stages',
+          items: filteredCallResults
+              .map((cr) => cr.callResult.toString())
+              .toList(),
+          onSelected: (index) {
+            String newCallResultId =
+                filteredCallResults[index].callResultId.toString();
+            setState(() {
+              if (newCallResultId != callResultId) {
+                nextFollowupDate1.clear();
+              }
+              callResultVal.text =
+                  filteredCallResults[index].callResult.toString();
+              callResult =
+                  filteredCallResults[index].callResult.toString();
+              callResultId = newCallResultId;
+
+              if (int.tryParse(callResultId.trim()) == 14) {
+                if (clientNameController.text.trim().isEmpty) {
+                  clientNameController.text = followupDetails?.data?.clientName ??
+                      leadDetails?.data?.clientName ??
+                      '';
+                }
+                if (schoolController.text.trim().isEmpty) {
+                  schoolController.text = followupDetails?.data?.school ??
+                      leadDetails?.data?.schoolName ??
+                      '';
+                }
+                if (areaController.text.trim().isEmpty) {
+                  areaController.text = followupDetails?.data?.area ??
+                      leadDetails?.data?.area ??
+                      '';
+                }
+                if (selectedGender.trim().isEmpty) {
+                  selectedGender = followupDetails?.data?.gender ??
+                      leadDetails?.data?.gender ??
+                      '';
+                  genderVal.text = selectedGender;
+                }
+                if (contactNo1Controller.text.trim().isEmpty) {
+                  contactNo1Controller.text =
+                      followupDetails?.data?.contactNumber2 ??
+                          leadDetails?.data?.contactNumber2 ??
+                          '';
+                }
+                if (contactNo2Controller.text.trim().isEmpty) {
+                  contactNo2Controller.text =
+                      followupDetails?.data?.contactNumber3 ??
+                          leadDetails?.data?.contactNumber3 ??
+                          '';
+                }
+              } else {
+                clientNameController.clear();
+                schoolController.clear();
+                areaController.clear();
+                selectedGender = '';
+                genderVal.clear();
+                contactNo1Controller.clear();
+                contactNo2Controller.clear();
+              }
+
+              // Clear stage-specific tags when stage changes
+              callResultReasonId = '';
+              callResultReasonName = 'Tag';
+              callReasonVal.clear();
+
+              callResultReasonList();
+              _fetchLeadExtraSettings(callResultId);
+            });
+          },
+        );
+      },
       child: AbsorbPointer(
         child: TextFormField(
           controller: callResultVal,
-          validator: (v) => v!.isEmpty ? 'Lead Stages is required' : null,
+          validator: (v) => v!.isEmpty ? 'Lead Status is required' : null,
           decoration:
-              _inputDecoration('Lead Stages *', Icons.assignment_turned_in),
+              _inputDecoration('Lead Status *', Icons.assignment_turned_in),
         ),
       ),
+    );
+  }
+
+  Widget _buildClientNameField() {
+    return TextFormField(
+      controller: clientNameController,
+      decoration: _inputDecoration('Name', Icons.person_outline),
+    );
+  }
+
+  Widget _buildSchoolField() {
+    return TextFormField(
+      controller: schoolController,
+      validator: (v) {
+        if (int.tryParse(callResultId.trim()) == 14 &&
+            (v == null || v.trim().isEmpty)) {
+          return 'School is required';
+        }
+        return null;
+      },
+      decoration: _inputDecoration('School *', Icons.school),
+    );
+  }
+
+  Widget _buildAreaField() {
+    return TextFormField(
+      controller: areaController,
+      validator: (v) {
+        if (int.tryParse(callResultId.trim()) == 14 &&
+            (v == null || v.trim().isEmpty)) {
+          return 'Area is required';
+        }
+        return null;
+      },
+      decoration: _inputDecoration('Area *', Icons.location_on),
+    );
+  }
+
+  Widget _buildGenderField() {
+    return DropdownButtonFormField<String>(
+      value: ['Male', 'Female', 'Other'].contains(selectedGender)
+          ? selectedGender
+          : null,
+      hint: const Text('Select Gender',
+          style: TextStyle(color: Colors.grey, fontSize: 14)),
+      isExpanded: true,
+      items: const [
+        DropdownMenuItem(value: 'Male', child: Text('Male')),
+        DropdownMenuItem(value: 'Female', child: Text('Female')),
+        DropdownMenuItem(value: 'Other', child: Text('Other')),
+      ],
+      onChanged: (val) {
+        setState(() {
+          selectedGender = val ?? '';
+          genderVal.text = val ?? '';
+        });
+      },
+      validator: (v) {
+        if (int.tryParse(callResultId.trim()) == 14 &&
+            (v == null || v.trim().isEmpty)) {
+          return 'Gender is required';
+        }
+        return null;
+      },
+      decoration: _inputDecoration('Gender *', Icons.person),
+    );
+  }
+
+  Widget _buildContactNo1Field() {
+    return TextFormField(
+      controller: contactNo1Controller,
+      keyboardType: TextInputType.phone,
+      inputFormatters: [
+        FilteringTextInputFormatter.digitsOnly,
+        LengthLimitingTextInputFormatter(15),
+      ],
+      validator: (v) {
+        if (int.tryParse(callResultId.trim()) == 14 &&
+            v != null &&
+            v.trim().isNotEmpty &&
+            v.trim().length < 10) {
+          return 'Enter valid contact number (min 10 digits)';
+        }
+        return null;
+      },
+      decoration: _inputDecoration('Contact No 1', Icons.phone_outlined),
+    );
+  }
+
+  Widget _buildContactNo2Field() {
+    return TextFormField(
+      controller: contactNo2Controller,
+      keyboardType: TextInputType.phone,
+      inputFormatters: [
+        FilteringTextInputFormatter.digitsOnly,
+        LengthLimitingTextInputFormatter(15),
+      ],
+      validator: (v) {
+        if (int.tryParse(callResultId.trim()) == 14 &&
+            v != null &&
+            v.trim().isNotEmpty &&
+            v.trim().length < 10) {
+          return 'Enter valid contact number (min 10 digits)';
+        }
+        return null;
+      },
+      decoration: _inputDecoration('Contact No 2', Icons.phone_outlined),
     );
   }
 
@@ -1145,8 +1486,8 @@ Widget _buildProductSelection() {
       child: AbsorbPointer(
         child: TextFormField(
           controller: leadTypeVal,
-          //   validator: (v) => v!.isEmpty ? 'Lead category is required' : null,
-          decoration: _inputDecoration('Lead Category', Icons.category),
+          //   validator: (v) => v!.isEmpty ? 'Stream is required' : null,
+          decoration: _inputDecoration('Stream', Icons.category),
         ),
       ),
     );
@@ -1326,7 +1667,7 @@ Widget _buildProductSelection() {
         return StatefulBuilder(
           builder: (ctx, setState) {
             return AlertDialog(
-              title: const Text('Lead Category'),
+              title: const Text('Stream'),
               content: SizedBox(
                 width: MediaQuery.of(context).size.width * 0.8,
                 height: 400,

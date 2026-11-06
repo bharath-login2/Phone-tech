@@ -647,7 +647,7 @@ class _TransferLeadReportState extends State<TransferLeadReport> {
                                                   crossAxisAlignment:
                                                       CrossAxisAlignment.start,
                                                   children: [
-                                                    const Text('Lead Category'),
+                                                    const Text('Stream'),
                                                     const SizedBox(
                                                       height: 10,
                                                     ),
@@ -662,7 +662,7 @@ class _TransferLeadReportState extends State<TransferLeadReport> {
                                                                 scrollable:
                                                                     true,
                                                                 title: const Text(
-                                                                    'Lead Category'),
+                                                                    'Stream'),
                                                                 content:
                                                                     SizedBox(
                                                                   height: MediaQuery.of(
@@ -757,7 +757,7 @@ class _TransferLeadReportState extends State<TransferLeadReport> {
                                                                         bottom:
                                                                             10),
                                                                 child: Text(
-                                                                    'Lead Category'))
+                                                                    'Stream'))
                                                             : Padding(
                                                                 padding:
                                                                     const EdgeInsets
